@@ -482,7 +482,10 @@
   <section class="screen" id="s-reveal">
     <div class="reveal-head"><div class="eyebrow">FINAL HAND</div><div class="t">あなたの卓の、それぞれの本音</div></div>
     <div class="scroll" id="reveal"></div>
-    <div class="cta-host"><div class="c-t">次は、あなたが主催する番</div><div class="c-s">ホーム画面にアプリ登録していつでも主催できるようにしよう</div></div>
+    <div class="cta-host"><div class="c-t">次は、あなたが主催する番</div><div class="c-s">ホーム画面にアプリ登録していつでも主催できるようにしよう</div>
+      <button class="btn btn-ghost" id="installBtn" onclick="installPwa()" style="margin-top:12px;font-size:14px">ホーム画面に追加する</button>
+      <div id="iosHint" style="display:none;margin-top:10px;font-size:12px;color:var(--muted);line-height:1.7">Safari の <b>共有ボタン</b>（□↑）をタップ<br>→「ホーム画面に追加」を選んでください</div>
+    </div>
     <div class="foot"><button class="btn btn-primary" onclick="toDeck()">別のデッキで主催する</button></div>
   </section>
 
@@ -1078,6 +1081,27 @@ async function tryReconnect(saved) {
     await goTable();
   } else if (sess.status==='done') {
     await goReveal();
+  }
+}
+
+// ---- PWAインストール ----
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+});
+function installPwa() {
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  if (isStandalone) { alert('すでにホーム画面に追加済みです'); return; }
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then(() => { deferredInstallPrompt = null; });
+  } else if (isIos) {
+    $('installBtn').style.display = 'none';
+    $('iosHint').style.display = 'block';
+  } else {
+    alert('お使いのブラウザではChromeでページを開き、メニュー→「ホーム画面に追加」を選んでください');
   }
 }
 
