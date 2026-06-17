@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#34302A"/>
+  <rect x="36" y="36" width="440" height="440" rx="70" fill="none" stroke="#D9756C" stroke-width="10"/>
+  <rect x="60" y="60" width="392" height="392" rx="54" fill="none" stroke="#D9756C" stroke-width="3" opacity="0.4"/>
+  <text x="256" y="360" text-anchor="middle" font-size="288" font-family="Georgia,serif" font-weight="bold" fill="#D9756C">裏</text>
+</svg>

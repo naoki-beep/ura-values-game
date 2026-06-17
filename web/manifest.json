@@ -1,0 +1,13 @@
+{
+  "name": "裏価値観ゲーム",
+  "short_name": "裏価値観",
+  "description": "本音をさらけ出す価値観カードゲーム・各自スマホ版",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FBF8F3",
+  "theme_color": "#34302A",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

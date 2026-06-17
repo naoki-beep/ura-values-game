@@ -3,8 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#14110F">
-<title>裏価値観ゲーム｜各自スマホ版 UXプレビュー</title>
+<meta name="theme-color" content="#34302A">
+<title>裏価値観ゲーム｜各自スマホ版</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="裏価値観">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -196,13 +201,19 @@
   .reveal-head{text-align:center;margin:6px 0 6px}
   .reveal-head .t{font-family:"Shippori Mincho",serif;font-weight:800;font-size:22px;margin-top:6px;color:var(--text)}
   .scroll{overflow-y:auto;flex:1;padding-bottom:8px}
-  .player-row{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:14px;margin-top:9px;box-shadow:0 3px 10px var(--shadow)}
-  .player-row.you{border-color:var(--hi)}
-  .player-row .nm{font-family:"Shippori Mincho",serif;font-weight:800;font-size:17px;display:flex;justify-content:space-between;color:var(--text)}
-  .player-row .nm .me{color:var(--hi);font-size:12px}
-  .player-cards{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:11px}
-  .vcard{background:var(--field-bg);border-left:3px solid var(--accent);border-radius:9px;padding:10px 11px;font-family:"Shippori Mincho",serif;font-size:13.5px;font-weight:600;color:var(--text)}
-  .vcard.full{grid-column:1/-1}
+  .player-row{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 14px 16px;margin-top:10px;box-shadow:0 3px 10px var(--shadow)}
+  .player-row.you{border-color:var(--hi);box-shadow:0 4px 14px color-mix(in srgb,var(--hi) 20%,transparent)}
+  .player-row .nm{font-family:"Shippori Mincho",serif;font-weight:800;font-size:17px;display:flex;justify-content:space-between;align-items:center;color:var(--text);margin-bottom:12px}
+  .player-row .nm .me{color:var(--hi);font-size:11px;background:color-mix(in srgb,var(--hi) 12%,transparent);border:1px solid var(--hi);border-radius:10px;padding:2px 8px}
+  /* カード型5枚表示 */
+  .reveal-hand{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+  .rcard{position:relative;flex:0 0 clamp(56px,13vw,78px);height:clamp(80px,18.6vw,111px);border-radius:10px;
+    background:var(--surface);border:1.5px solid var(--hi);box-shadow:0 5px 14px var(--shadow);
+    display:flex;align-items:center;justify-content:center;text-align:center}
+  .rcard .rc-cnr{position:absolute;color:var(--hi);opacity:.55;font-size:8px;line-height:1}
+  .rcard .rc-cnr.tl{top:5px;left:6px}.rcard .rc-cnr.br{bottom:5px;right:6px;transform:rotate(180deg)}
+  .rcard-in{font-family:"Shippori Mincho",serif;font-weight:600;font-size:clamp(10px,2.4vw,13px);line-height:1.45;color:var(--text);padding:5px 4px}
+  .player-row.you .rcard{border-color:var(--hi)}
   .cta-host{background:var(--surface2);border:1px solid var(--hi);border-radius:14px;padding:16px;text-align:center;margin-top:14px}
   .cta-host .c-t{font-family:"Shippori Mincho",serif;font-weight:800;font-size:16px;color:var(--hi)}
   .cta-host .c-s{font-size:12px;color:var(--muted);margin-top:3px}
@@ -1034,8 +1045,8 @@ async function goReveal(){
     rows.forEach(p=>{
       const hand = p.final_hand || [];
       const row=document.createElement('div'); row.className='player-row'+(p.seat===yourSeat?' you':'');
-      const cards=hand.map((c,i)=>`<div class="vcard${i===4?' full':''}">${c}</div>`).join('');
-      row.innerHTML=`<div class="nm">${p.name}${p.seat===yourSeat?'<span class="me">あなた</span>':''}</div><div class="player-cards">${cards}</div>`;
+      const cards=hand.map(c=>`<div class="rcard"><span class="rc-cnr tl">♠</span><div class="rcard-in">${c}</div><span class="rc-cnr br">♠</span></div>`).join('');
+      row.innerHTML=`<div class="nm">${p.name}${p.seat===yourSeat?'<span class="me">あなた</span>':''}</div><div class="reveal-hand">${cards}</div>`;
       box.appendChild(row);
     });
     show('s-reveal');
@@ -1074,6 +1085,7 @@ async function tryReconnect(saved) {
 // 初期化
 // =====================================================
 document.addEventListener('DOMContentLoaded', async () => {
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
   net = createGameNet({ url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY });
   renderDecks();
 
