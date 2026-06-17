@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="0%" r="80%">
+      <stop offset="0%" stop-color="#FBF8F3"/>
+      <stop offset="100%" stop-color="#EFE8DD"/>
+    </radialGradient>
+  </defs>
+  <!-- background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <!-- decorative border -->
+  <rect x="28" y="28" width="1144" height="574" rx="24" fill="none" stroke="#D9756C" stroke-width="2.5" opacity="0.5"/>
+  <rect x="44" y="44" width="1112" height="542" rx="16" fill="none" stroke="#D9756C" stroke-width="1" opacity="0.25"/>
+
+  <!-- left: big 裏 character -->
+  <rect x="60" y="60" width="420" height="510" rx="20" fill="#34302A"/>
+  <rect x="76" y="76" width="388" height="478" rx="14" fill="none" stroke="#D9756C" stroke-width="4" opacity="0.6"/>
+  <text x="270" y="420" text-anchor="middle" font-size="340" font-family="Georgia,serif" font-weight="bold" fill="#D9756C">裏</text>
+
+  <!-- right: text block -->
+  <text x="560" y="170" font-family="Georgia,'Noto Serif JP',serif" font-size="18" fill="#9A9088" letter-spacing="6">U R A  V A L U E S  G A M E</text>
+  <text x="556" y="280" font-family="Georgia,'Noto Serif JP',serif" font-size="68" font-weight="bold" fill="#34302A">価値観</text>
+  <text x="556" y="360" font-family="Georgia,'Noto Serif JP',serif" font-size="68" font-weight="bold" fill="#34302A">カードゲーム</text>
+  <line x1="556" y1="390" x2="1140" y2="390" stroke="#D9756C" stroke-width="1.5" opacity="0.5"/>
+  <text x="556" y="440" font-family="'Noto Sans JP',sans-serif" font-size="26" fill="#6B6460">本音をさらけ出す、各自スマホ版</text>
+  <text x="556" y="490" font-family="'Noto Sans JP',sans-serif" font-size="26" fill="#6B6460">友人・チーム・カップルで楽しめる</text>
+  <text x="556" y="565" font-family="Georgia,monospace" font-size="20" fill="#9A9088" letter-spacing="2">ura-values-app.com</text>
+</svg>
