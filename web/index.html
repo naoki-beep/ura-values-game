@@ -453,6 +453,7 @@
       <button class="btn btn-primary" id="startBtn" style="display:none" disabled>参加者を待っています…</button>
       <div id="lobbyWait" style="text-align:center;color:var(--muted);font-size:13px;padding:10px 0;display:none">ゲームが始まるまでお待ちください…</div>
       <div id="lobbyHostNote" style="text-align:center;font-size:11px;color:var(--muted);margin-top:6px"></div>
+      <button class="btn btn-ghost" id="cancelLobbyBtn" style="display:none;margin-top:10px;font-size:13px" onclick="cancelLobby()">← 設定をやり直す</button>
     </div>
   </section>
 
@@ -747,7 +748,19 @@ function updatePrice(){
   const sizes=splitIntoTables(N);
   $('splitNote').textContent = sizes.length>1 ? `${N}人 → ${sizes.length}卓に分割（${sizes.join("・")}人）。あなたは1卓でプレイします。` : `${N}人 → 1卓でプレイ`;
 }
-function afterSetup(){ if(price.paid){ gtag('event','payment_started',{deck_key:deckKey,price_yen:price.yen}); enterPay(); } else openLobby(); }
+function afterSetup(){
+  if(price.paid){
+    // 30分以内に同じデッキで決済済みなら決済スキップ
+    try {
+      const p = JSON.parse(localStorage.getItem('ura:paid')||'null');
+      if(p && p.deckKey===deckKey && Date.now()-p.paidAt < 30*60*1000){ openLobby(); return; }
+    } catch(e){}
+    gtag('event','payment_started',{deck_key:deckKey,price_yen:price.yen});
+    enterPay();
+  } else {
+    openLobby();
+  }
+}
 
 // ---- pay ----
 function enterPay(){
@@ -757,7 +770,11 @@ function enterPay(){
   $('payTotal').textContent=yen(price.yen);
   show('s-pay');
 }
-function paySuccess(){ gtag('event','purchase',{deck_key:deckKey,value:price.yen,currency:'JPY'}); openLobby(); }
+function paySuccess(){
+  gtag('event','purchase',{deck_key:deckKey,value:price.yen,currency:'JPY'});
+  localStorage.setItem('ura:paid', JSON.stringify({deckKey, paidAt:Date.now(), yen:price.yen}));
+  openLobby();
+}
 
 // ---- lobby (主催: 部屋作成→QR表示→参加待ち) ----
 async function openLobby(){
@@ -774,6 +791,7 @@ async function openLobby(){
     $('lobbyWait').style.display = 'none';
     $('lobbyHostNote').textContent = '主催のあなただけが開始できます';
     $('startBtn').onclick = goAssign;
+    $('cancelLobbyBtn').style.display = 'block';
     show('s-lobby');
     await net.subscribeLobby({ onPlayers: renderLobbyPlayers, onStatus: onSessionStatus });
   } catch(e) { alert('部屋作成エラー: ' + e.message); }
@@ -822,6 +840,16 @@ async function doJoinRoom() {
     show('s-lobby');
     await net.subscribeLobby({ onPlayers: renderLobbyPlayers, onStatus: onSessionStatus });
   } catch(e) { $('joinError').textContent = 'エラー: ' + e.message; }
+}
+
+// ---- ロビーキャンセル（部屋を破棄して設定に戻る）----
+async function cancelLobby() {
+  if (!confirm('部屋をキャンセルして設定に戻りますか？\n参加済みのメンバーも退室になります。')) return;
+  net.leave();
+  localStorage.removeItem('ura:net');
+  net.store.sessionId = null; net.store.playerId = null; net.store.hostToken = null; net.store.code = null;
+  $('cancelLobbyBtn').style.display = 'none';
+  enterSetup();
 }
 
 // ---- 席割り（主催が手動で割り振り）----
@@ -1101,6 +1129,7 @@ async function tryReconnect(saved) {
       $('qrImg').src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=6&data='+encodeURIComponent(joinUrl);
       $('joinUrl').textContent=joinUrl; $('startBtn').style.display='block'; $('startBtn').onclick=goAssign;
       $('lobbyWait').style.display='none'; $('lobbyHostNote').textContent='主催のあなただけが開始できます';
+      $('cancelLobbyBtn').style.display='block';
     } else { $('startBtn').style.display='none'; $('lobbyWait').style.display='block'; }
     show('s-lobby');
     await net.subscribeLobby({ onPlayers: renderLobbyPlayers, onStatus: onSessionStatus });
