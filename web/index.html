@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#14110F">
+<title>裏価値観ゲーム｜各自スマホ版 UXプレビュー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+
+  /* ===== themes ===== */
+  :root{ /* light (一般デッキ): 白基調＋パステル差し色 */
+    --bg1:#FBF8F3;--bg2:#EFE8DD;--surface:#FFFFFF;--surface2:#F6F1EA;
+    --text:#34302A;--muted:#9A9088;--line:rgba(60,50,40,.14);
+    --hi:#6E76CC;--accent:#D9756C;--on-accent:#FFFFFF;
+    --field-bg:#FCEDEB;--field-border:rgba(217,117,108,.55);--field-text:#9A4A44;
+    --back1:#ECEAFB;--back2:#DCDFF4;--back-em:#7C82C9;--shadow:rgba(80,60,50,.16);
+  }
+  body[data-theme="pink"]{ /* 性デッキ: ピンク基調 */
+    --bg1:#FFF1F5;--bg2:#FAD7E5;--surface:#FFFFFF;--surface2:#FFEFF5;
+    --text:#4A2A38;--muted:#B58597;--line:rgba(150,60,95,.16);
+    --hi:#E07AAE;--accent:#DB5C86;--on-accent:#FFFFFF;
+    --field-bg:#FCE0EA;--field-border:rgba(219,92,134,.55);--field-text:#A83E63;
+    --back1:#FBD7E6;--back2:#F4B9D0;--back-em:#D5588A;--shadow:rgba(180,90,125,.20);
+  }
+  body[data-theme="deep"]{ /* DEEP: 黒紫基調 */
+    --bg1:#170E22;--bg2:#0A0610;--surface:#231834;--surface2:#2B1F40;
+    --text:#ECE2F4;--muted:#9D8FB2;--line:rgba(200,170,230,.15);
+    --hi:#BC8DE8;--accent:#C05E8C;--on-accent:#FFFFFF;
+    --field-bg:#341F3E;--field-border:rgba(200,110,150,.5);--field-text:#EBBAD4;
+    --back1:#2F1F47;--back2:#180F28;--back-em:#BC8DE8;--shadow:rgba(0,0,0,.5);
+  }
+
+  body{background:radial-gradient(120% 80% at 50% -10%,var(--bg1) 0%,var(--bg2) 62%) fixed;
+    color:var(--text);font-family:"Noto Sans JP",system-ui,sans-serif;line-height:1.6;transition:background .4s,color .4s}
+  .demo-banner{background:var(--surface2);color:var(--muted);font-size:11px;text-align:center;padding:6px 10px;letter-spacing:.03em;border-bottom:1px solid var(--line)}
+  .wrap{max-width:560px;margin:0 auto;min-height:calc(100dvh - 28px);
+    padding:16px 18px max(env(safe-area-inset-bottom),20px);display:flex;flex-direction:column;}
+  .mincho{font-family:"Shippori Mincho",serif}
+
+  .screen{display:none;flex:1;flex-direction:column}
+  .screen.active{display:flex;animation:fade .35s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
+
+  .eyebrow{font-size:11px;letter-spacing:.4em;color:var(--accent);font-weight:700}
+  .title{font-family:"Shippori Mincho",serif;font-weight:800;line-height:1.05;color:var(--text)}
+  .btn{appearance:none;border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:16px;
+    border-radius:14px;padding:16px 20px;transition:transform .08s,filter .2s;width:100%}
+  .btn:active{transform:scale(.98)}
+  .btn-primary{background:var(--accent);color:var(--on-accent);box-shadow:0 6px 16px var(--shadow)}
+  .btn-primary:active{filter:brightness(1.05)}
+  .btn-ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+  .btn:disabled{opacity:.4}
+  .btn-row{display:flex;gap:10px}.btn-row .btn{flex:1}
+  .foot{margin-top:auto;padding-top:14px}
+
+  /* deck select */
+  .head-block{text-align:center;margin-bottom:10px}
+  .head-block .title{font-size:clamp(32px,10vw,48px)}
+  .head-block .title .ura{color:var(--accent)}
+  .head-block .sub{color:var(--muted);font-size:13px;margin-top:8px}
+  .deck-grid{display:flex;flex-direction:column;gap:11px;overflow-y:auto;flex:1;padding:6px 2px 12px}
+  .deck-tile{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 17px;cursor:pointer;box-shadow:0 4px 14px var(--shadow);transition:border-color .15s,transform .08s}
+  .deck-tile:active{transform:scale(.99)}.deck-tile.adult{border-color:var(--accent)}
+  .deck-name{font-family:"Shippori Mincho",serif;font-weight:800;font-size:18px;display:flex;align-items:center;gap:9px;color:var(--text)}
+  .deck-tag{color:var(--muted);font-size:12.5px;margin-top:3px}
+  .deck-price{color:var(--hi);font-size:12.5px;font-weight:700;margin-top:8px;font-family:"Shippori Mincho",serif}
+  .badge18{font-size:10px;font-weight:800;color:#fff;background:var(--accent);border-radius:6px;padding:2px 7px}
+  .badge-deep{background:#7A4AA8}
+
+  /* gate */
+  .gate{justify-content:center;align-items:center;text-align:center;gap:6px}
+  .gate .ic{width:64px;height:64px;border-radius:50%;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-family:"Shippori Mincho",serif;font-weight:800;font-size:24px;color:var(--accent);margin-bottom:14px}
+  .gate .g-ttl{font-family:"Shippori Mincho",serif;font-weight:800;font-size:23px;line-height:1.3;color:var(--text)}
+  .gate .g-sub{color:var(--muted);font-size:13.5px;max-width:30ch;margin-top:10px}
+  .gate .actions{margin-top:28px;width:100%;max-width:320px;display:flex;flex-direction:column;gap:10px}
+
+  /* setup */
+  .setup-ttl{font-family:"Shippori Mincho",serif;font-weight:800;font-size:21px;text-align:center;color:var(--text)}
+  .setup-deck{color:var(--hi);font-size:13px;text-align:center;margin-top:4px;font-family:"Shippori Mincho",serif}
+  .stepper{display:flex;align-items:center;justify-content:center;gap:20px;margin:22px 0 4px}
+  .stepper button{width:52px;height:52px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--text);font-size:25px;cursor:pointer;box-shadow:0 3px 10px var(--shadow)}
+  .stepper .num{font-family:"Shippori Mincho",serif;font-weight:800;font-size:44px;min-width:80px;text-align:center;color:var(--text)}
+  .stepper-label{font-size:12px;letter-spacing:.3em;color:var(--muted);text-align:center}
+  .field-input{width:100%;background:var(--surface);border:1px solid var(--line);color:var(--text);border-radius:11px;padding:13px 15px;font-family:inherit;font-size:15px;margin-top:16px}
+  .field-input:focus{outline:none;border-color:var(--hi)}
+  .price-line{background:var(--surface2);border-radius:12px;padding:13px 16px;margin-top:14px;text-align:center}
+  .price-line .pl-amt{font-family:"Shippori Mincho",serif;font-weight:800;font-size:23px;color:var(--text)}
+  .price-line .pl-amt.free{color:var(--hi)}
+  .price-line .pl-reason{color:var(--muted);font-size:12px;margin-top:2px}
+
+  /* pay */
+  .pay{justify-content:center}
+  .pay-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:0 8px 24px var(--shadow)}
+  .pay-ttl{font-family:"Shippori Mincho",serif;font-weight:800;font-size:20px;text-align:center;margin-bottom:14px;color:var(--text)}
+  .pay-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .pay-row:last-of-type{border-bottom:none}.pay-row .k{color:var(--muted)}.pay-row .v{color:var(--text)}
+  .pay-row.total{font-family:"Shippori Mincho",serif;font-weight:800;font-size:18px}.pay-row.total .v{color:var(--hi)}
+  .demo-note{background:var(--field-bg);border:1px solid var(--field-border);border-radius:11px;padding:11px 13px;font-size:12px;color:var(--field-text);margin:14px 0}
+
+  /* lobby */
+  .lobby-top{text-align:center;margin-bottom:8px}
+  .code-label{font-size:11px;letter-spacing:.3em;color:var(--muted)}
+  .code-big{font-family:"Shippori Mincho",serif;font-weight:800;font-size:46px;letter-spacing:.18em;color:var(--hi);margin-top:2px}
+  .qr{width:128px;height:128px;margin:14px auto 4px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;display:grid;grid-template-columns:repeat(11,1fr);grid-template-rows:repeat(11,1fr);gap:1px}
+  .qr i{background:#1b1b1b}
+  .qr i.off{background:transparent}
+  .lobby-count{text-align:center;font-size:13px;color:var(--muted);margin-top:8px}
+  .lobby-count b{color:var(--text);font-family:"Shippori Mincho",serif;font-size:16px}
+  .join-list{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:12px;overflow-y:auto;max-height:30dvh;align-content:start}
+  .join-pill{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:6px 13px;font-size:13px;animation:fade .3s ease;box-shadow:0 2px 8px var(--shadow)}
+  .join-pill.you{border-color:var(--hi);color:var(--hi)}
+
+  /* assign */
+  .assign-ctrls{display:flex;gap:8px;margin-bottom:6px}
+  .assign-ctrls .mini{padding:11px;font-size:13px}
+  .assign-hint{font-size:11.5px;color:var(--accent);min-height:15px;text-align:center;margin-bottom:6px}
+  .tcard{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:12px 13px;margin-bottom:9px;cursor:pointer;box-shadow:0 3px 10px var(--shadow)}
+  .tcard.unassigned{border-style:dashed;background:transparent;box-shadow:none}
+  .tcard-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+  .tcard-title{font-family:"Shippori Mincho",serif;font-weight:800;font-size:15px;color:var(--text)}
+  .tcard-title.warn{color:var(--accent)}
+  .tcard-rm{background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer}
+  .tcard-pills{display:flex;flex-wrap:wrap;gap:6px;min-height:22px}
+  .apill{background:var(--surface2);border:1px solid var(--line);border-radius:18px;padding:6px 12px;font-size:13px;cursor:pointer;color:var(--text)}
+  .apill.you{border-color:var(--hi);color:var(--hi)}
+  .apill.sel{background:var(--hi);color:var(--on-accent);border-color:var(--hi);font-weight:700}
+  .tcard-empty{color:var(--muted);font-size:12px;padding:3px 0}
+
+  /* table */
+  .tinfo{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .tinfo .l{font-family:"Shippori Mincho",serif;font-weight:800;font-size:17px;color:var(--text)}
+  .tinfo .r{font-size:11px;color:var(--muted);text-align:right;white-space:nowrap}
+  .tinfo .r b{color:var(--text);font-size:15px;font-family:"Shippori Mincho",serif}
+  .c-pile{color:var(--hi)!important}
+  .c-field{color:var(--accent)!important}
+  .lbl-field{color:var(--accent)}
+  .lbl-hand{color:var(--hi)}
+  .turn-state{margin:12px 0 2px;font-weight:700;font-size:14px}
+  .turn-state.you{color:var(--accent)}
+  .turn-state.wait{color:var(--hi);animation:pulse 1.6s ease-in-out infinite}
+
+  /* card-game look */
+  .play-prompt{color:var(--muted);font-size:13px;text-align:center;margin:12px 0 2px}
+  .play-prompt b{color:var(--text)}
+  .pcard{position:relative;flex:0 0 auto;width:var(--cw,96px);height:var(--ch,136px);border-radius:11px;
+    background:var(--surface);border:1px solid var(--hi);box-shadow:0 8px 16px var(--shadow);cursor:pointer;
+    transition:transform .14s,box-shadow .14s,border-color .14s}
+  .pcard .pc-in{position:absolute;inset:6px;border:1px solid var(--line);border-radius:8px;display:flex;
+    align-items:center;justify-content:center;text-align:center;padding:7px;font-family:"Shippori Mincho",serif;
+    font-weight:600;font-size:13px;line-height:1.35;color:var(--text)}
+  .pcard .pc-cnr{position:absolute;color:var(--hi);opacity:.7;font-size:9px;line-height:1}
+  .pcard .pc-cnr.tl{top:6px;left:8px}.pcard .pc-cnr.br{bottom:6px;right:8px;transform:rotate(180deg)}
+  .pcard:active{transform:translateY(-4px)}
+  .pcard.field{--cw:82px;--ch:116px;border-color:var(--field-border);background:var(--field-bg)}
+  .pcard.field .pc-in{border-color:var(--field-border);color:var(--field-text);font-size:12px}
+  .pcard.field .pc-cnr{color:var(--accent)}
+  .hand-fan{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;padding:18px 4px 6px}
+  .hand-fan.locked .pcard{opacity:.5;pointer-events:none;box-shadow:0 4px 10px var(--shadow)}
+  .field-fan{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:6px 2px;max-height:38dvh;overflow-y:auto}
+  .field-fan.static .pcard{cursor:default}
+  .zone-label{font-size:12px;margin:14px 0 2px;text-align:center;letter-spacing:.04em;color:var(--muted)}
+  .empty-note{color:var(--muted);font-size:13px;text-align:center;padding:16px 0;width:100%}
+  .draw-area{display:flex;flex-direction:column;align-items:center;margin-top:8px}
+  .pile-stack{position:relative;width:96px;height:136px;cursor:pointer;margin:8px 0 4px}
+  .pile-stack .back{position:absolute;inset:0;border-radius:11px}
+  .pile-stack .back.b1{transform:translate(7px,7px);opacity:.45}
+  .pile-stack .back.b2{transform:translate(3.5px,3.5px);opacity:.72}
+  .pile-stack.empty{opacity:.3;pointer-events:none}
+  .pile-stack:active .back.top{transform:translateY(-5px)}
+  .pile-count{font-family:"Shippori Mincho",serif;font-size:13px;color:var(--hi);text-align:center}
+  .draw-sep{color:var(--muted);font-size:12px;letter-spacing:.3em;margin:12px 0 4px}
+  .card-back{background:linear-gradient(160deg,var(--back1),var(--back2));border:1px solid var(--hi);border-radius:11px;position:relative;overflow:hidden;box-shadow:0 8px 16px var(--shadow)}
+  .card-back::before{content:"";position:absolute;inset:7px;border:1px solid var(--hi);opacity:.5;border-radius:8px}
+  .card-back .em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-family:"Shippori Mincho",serif;font-weight:800;font-size:42px;color:var(--back-em);text-shadow:0 1px 4px var(--shadow)}
+  .flip-wrap{align-self:center;width:min(68vw,250px);height:min(95vw,350px);perspective:1200px;margin:0 auto}
+  .flip{position:relative;width:100%;height:100%;transform-style:preserve-3d;transition:transform .62s cubic-bezier(.2,.7,.2,1)}
+  .flip.flipped{transform:rotateY(180deg)}
+  .flip .face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 16px 36px var(--shadow)}
+  .flip .face.back .em{font-size:62px}
+  .flip .face.front{transform:rotateY(180deg);font-family:"Shippori Mincho",serif;font-weight:800;
+    font-size:clamp(22px,6.4vw,34px);line-height:1.4;text-align:center;padding:24px;color:var(--text);
+    background:var(--surface);border:2px solid var(--hi)}
+  .flip.discard .face.front{border-color:var(--accent)}
+
+  .host-bar{margin-top:12px}
+  .host-bar .btn{font-size:13px;padding:12px}
+
+  /* reveal */
+  .reveal-head{text-align:center;margin:6px 0 6px}
+  .reveal-head .t{font-family:"Shippori Mincho",serif;font-weight:800;font-size:22px;margin-top:6px;color:var(--text)}
+  .scroll{overflow-y:auto;flex:1;padding-bottom:8px}
+  .player-row{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:14px;margin-top:9px;box-shadow:0 3px 10px var(--shadow)}
+  .player-row.you{border-color:var(--hi)}
+  .player-row .nm{font-family:"Shippori Mincho",serif;font-weight:800;font-size:17px;display:flex;justify-content:space-between;color:var(--text)}
+  .player-row .nm .me{color:var(--hi);font-size:12px}
+  .player-cards{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:11px}
+  .vcard{background:var(--field-bg);border-left:3px solid var(--accent);border-radius:9px;padding:10px 11px;font-family:"Shippori Mincho",serif;font-size:13.5px;font-weight:600;color:var(--text)}
+  .vcard.full{grid-column:1/-1}
+  .cta-host{background:var(--surface2);border:1px solid var(--hi);border-radius:14px;padding:16px;text-align:center;margin-top:14px}
+  .cta-host .c-t{font-family:"Shippori Mincho",serif;font-weight:800;font-size:16px;color:var(--hi)}
+  .cta-host .c-s{font-size:12px;color:var(--muted);margin-top:3px}
+
+  /* announce overlay */
+  .announce{position:fixed;inset:0;z-index:50;background:color-mix(in srgb,var(--bg2) 90%,transparent);backdrop-filter:blur(3px);display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+  .announce.show{display:flex;animation:fade .2s ease}
+  .ann-inner{width:100%;max-width:440px;text-align:center;display:flex;flex-direction:column}
+  .ann-label{font-size:12px;letter-spacing:.35em;font-weight:800;margin-bottom:18px}
+  .ann-label.discard{color:var(--accent)}
+  .ann-label.drew{color:var(--hi)}
+  .ann-hint{color:var(--muted);font-size:13px;margin-top:16px}
+  .ann-actions{margin-top:24px;display:flex;flex-direction:column;gap:10px}
+
+  /* how-to manual */
+  .howto-btn{width:auto;display:inline-block;margin-top:16px;padding:10px 22px;font-size:13.5px}
+  .howto{padding-right:2px}
+  .howto-sec{display:flex;gap:12px;margin-bottom:16px}
+  .howto-num{flex:0 0 auto;width:30px;height:30px;border-radius:50%;background:var(--hi);color:var(--on-accent);font-family:"Shippori Mincho",serif;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:15px}
+  .howto-sec .b{flex:1}
+  .howto-sec h4{font-family:"Shippori Mincho",serif;font-weight:800;font-size:15.5px;color:var(--text);margin-bottom:4px}
+  .howto-sec p{font-size:13.5px;color:var(--muted);line-height:1.75}
+  .howto-sec p b{color:var(--text)}
+  .key-box{background:var(--surface2);border-radius:12px;padding:14px 16px;margin:2px 0 18px}
+  .key-row{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text);margin:7px 0}
+  .swatch{width:22px;height:22px;border-radius:6px;flex:0 0 auto;border:1px solid var(--line)}
+  .swatch.hi{background:var(--hi)}.swatch.ac{background:var(--accent)}
+
+  /* field view toggle + text list */
+  .field-wrap{margin-top:4px}
+  .view-toggle{display:flex;justify-content:flex-end;margin-bottom:8px}
+  .vt{background:var(--surface);border:1px solid var(--line);color:var(--muted);font-family:inherit;font-size:12px;padding:6px 14px;cursor:pointer}
+  .vt:first-child{border-radius:8px 0 0 8px}
+  .vt:last-child{border-radius:0 8px 8px 0;border-left:none}
+  .vt.on{background:var(--hi);color:var(--on-accent);border-color:var(--hi)}
+  .field-list{display:flex;flex-direction:column;max-height:40dvh;overflow-y:auto;border:1px solid var(--field-border);border-radius:11px;background:var(--field-bg)}
+  .field-list .fl-item{padding:11px 14px;font-family:"Shippori Mincho",serif;font-size:14px;color:var(--field-text);border-bottom:1px solid var(--field-border);cursor:pointer}
+  .field-list .fl-item:last-child{border-bottom:none}
+  .field-list.static .fl-item{cursor:default}
+  .field-list .fl-item:active{filter:brightness(.94)}
+
+  /* penalty mode: toggle / trap list / overlay */
+  .opt-row{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-top:14px;cursor:pointer;box-shadow:0 3px 10px var(--shadow)}
+  .opt-row.on{border-color:var(--accent)}
+  .opt-l{flex:1}
+  .opt-t{font-family:"Shippori Mincho",serif;font-weight:800;font-size:15px;color:var(--text)}
+  .opt-d{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .opt-sw{width:46px;height:26px;border-radius:13px;background:var(--line);position:relative;flex:0 0 auto;transition:background .2s}
+  .opt-sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+  .opt-row.on .opt-sw{background:var(--accent)}
+  .opt-row.on .opt-sw::after{transform:translateX(20px)}
+  .trap-list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface)}
+  .trap-item{padding:12px 15px;font-family:"Shippori Mincho",serif;font-size:14px;color:var(--text);border-bottom:1px solid var(--line);cursor:pointer}
+  .trap-item:last-child{border-bottom:none}
+  .trap-item.sel{background:var(--accent);color:var(--on-accent)}
+  .penalty{position:fixed;inset:0;z-index:60;background:color-mix(in srgb,var(--accent) 24%,var(--bg2));backdrop-filter:blur(3px);display:none;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center}
+  .penalty.show{display:flex;animation:fade .2s ease}
+  .pen-inner{display:flex;flex-direction:column;align-items:center;max-width:420px;width:100%}
+  .pen-emoji{font-size:62px}
+  .pen-ttl{font-family:"Shippori Mincho",serif;font-weight:800;font-size:30px;color:var(--accent);margin:6px 0 14px;letter-spacing:.05em}
+  .pen-who{font-family:"Shippori Mincho",serif;font-weight:800;font-size:clamp(26px,8vw,40px);color:var(--text);line-height:1.3}
+  .pen-sub{font-size:13px;color:var(--muted);margin-top:14px}
+
+</style>
+</head>
+<body>
+<div class="demo-banner">UXプレビュー：他の参加者はボットが自動で動きます（実際は各自のスマホ）</div>
+<div class="wrap">
+
+  <!-- DECK -->
+  <section class="screen active" id="s-deck">
+    <div class="head-block">
+      <div class="eyebrow">YOU ARE THE HOST</div>
+      <h1 class="title">裏<span class="ura">価値観</span>ゲーム</h1>
+      <div class="sub">主催として部屋を作ります。まずデッキを選択</div>
+      <button class="btn btn-ghost howto-btn" onclick="show('s-howto')">？ 遊び方を見る</button>
+    </div>
+    <div class="deck-grid" id="deckGrid"></div>
+  </section>
+
+  <!-- HOWTO -->
+  <section class="screen" id="s-howto">
+    <div class="head-block" style="margin-bottom:6px">
+      <div class="eyebrow">HOW TO PLAY</div>
+      <div class="setup-ttl">遊び方</div>
+    </div>
+    <div class="scroll howto">
+      <div class="howto-sec"><div class="howto-num">1</div><div class="b">
+        <h4>これは何のゲーム？</h4>
+        <p>本音をさらけ出すカードゲームです。たくさんの「価値観」カードの中から、<b>自分に当てはまる5枚</b>を残していきます。チームや仲間でやると、お互いの素顔が見えて盛り上がります。</p>
+      </div></div>
+      <div class="howto-sec"><div class="howto-num">2</div><div class="b">
+        <h4>準備（主催）</h4>
+        <p>デッキを選び、人数を決めて部屋を作ります。出てきた<b>コード／QR</b>をみんなに配り、各自のスマホで参加。会場では、近くに座っている人どうしを同じ卓にまとめると進めやすいです。</p>
+      </div></div>
+      <div class="howto-sec"><div class="howto-num">3</div><div class="b">
+        <h4>配られるもの</h4>
+        <p>1人に<b>5枚</b>配られます。残りは「山札」に。人数が多いときは<b>5〜8人ごとの卓</b>に分かれ、卓ごとに同時に進みます。</p>
+      </div></div>
+      <div class="howto-sec"><div class="howto-num">4</div><div class="b">
+        <h4>自分の番にやること</h4>
+        <p>① 手札5枚のうち、最も<b>「当てはまらない」1枚</b>を捨てる。<br>② <b>山札から1枚引く</b>、または<b>「場」（みんなの捨て札）から1枚拾う</b>。<br>捨てる札・拾う札は<b>声に出して読み上げ、みんなに見せましょう</b>。これで手札はいつも5枚に戻り、次の人へ。</p>
+      </div></div>
+      <div class="key-box">
+        <div class="key-row"><span class="swatch hi"></span>この色 ＝ 山札・自分の手札</div>
+        <div class="key-row"><span class="swatch ac"></span>この色 ＝ 場（みんなの捨て札）</div>
+      </div>
+      <div class="howto-sec"><div class="howto-num">5</div><div class="b">
+        <h4>終わり方</h4>
+        <p>山札がなくなるまで続けます（場からも拾えるので、自然と長くなります）。時間の都合があるときは、<b>主催が「終了する」を押せばその場で締め</b>られます。最後に手元に残った<b>5枚が、あなたの価値観</b>です。</p>
+      </div></div>
+      <div class="howto-sec"><div class="howto-num">6</div><div class="b">
+        <h4>盛り上げるコツ</h4>
+        <p>残った5枚を使って、順番に自己紹介。「<b>なぜこれを残したのか</b>」を話すと、その人らしさが一気に見えてきます。正解はありません。</p>
+      </div></div>
+      <div class="howto-sec"><div class="howto-num">7</div><div class="b">
+        <h4>大人向けデッキ（18+）</h4>
+        <p>性デッキは本音ライト、<b>DEEP</b>はより踏み込んだ内容です。選ぶと<b>年齢確認</b>が入ります。参加者全員が18歳以上であることを前提に遊んでください。</p>
+      </div></div>
+      <div class="howto-sec"><div class="howto-num">8</div><div class="b">
+        <h4>🍺 罰ゲームモード（+300円）</h4>
+        <p>開始時に全員が、札を1枚こっそり「トラップ」に設定。ゲーム中に<b>そのトラップ札を引いた人が飲みます</b>。最初から手札に持っていた分はセーフで、<b>引いた瞬間だけ発動</b>。誰のトラップだったかも分かるので、盛り上がります。お酒の席は飲みすぎ注意で。</p>
+      </div></div>
+    </div>
+    <div class="foot"><button class="btn btn-primary" onclick="show('s-deck')">とじる</button></div>
+  </section>
+
+  <!-- AGE -->
+  <section class="screen gate" id="s-age">
+    <div class="ic">18+</div>
+    <div class="g-ttl">成人向けの内容を含みます</div>
+    <div class="g-sub">このデッキには性に関する内容が含まれます。あなたは18歳以上ですか？</div>
+    <div class="actions">
+      <button class="btn btn-primary" onclick="passAge()">はい（18歳以上）</button>
+      <button class="btn btn-ghost" onclick="toDeck()">いいえ・戻る</button>
+    </div>
+  </section>
+
+  <!-- EXPR -->
+  <section class="screen gate" id="s-expr">
+    <div class="ic" style="border-color:#7d1f17;color:#d4453a">!</div>
+    <div class="g-ttl">特に過激な表現を含みます</div>
+    <div class="g-sub">このデッキ（DEEP）はより踏み込んだ性的な本音を扱います。進めてよろしいですか？</div>
+    <div class="actions">
+      <button class="btn btn-primary" onclick="passExpr()">理解して進む</button>
+      <button class="btn btn-ghost" onclick="toDeck()">戻る</button>
+    </div>
+  </section>
+
+  <!-- SETUP -->
+  <section class="screen" id="s-setup">
+    <div class="head-block" style="margin-bottom:0">
+      <div class="setup-ttl">部屋の人数（あなた含む）</div>
+      <div class="setup-deck" id="setupDeck">　</div>
+    </div>
+    <div class="stepper">
+      <button onclick="changeN(-1)">−</button>
+      <div class="num mincho" id="nNum">6</div>
+      <button onclick="changeN(1)">＋</button>
+    </div>
+    <div class="stepper-label">総参加人数</div>
+    <input class="field-input" id="yourName" placeholder="あなたの表示名" maxlength="12" value="あなた">
+    <div class="opt-row" id="penToggle" onclick="togglePenalty()">
+      <div class="opt-l"><div class="opt-t">🍺 罰ゲームモード</div><div class="opt-d">引いた札がトラップなら飲む。ゲーム性アップ（+300円）</div></div>
+      <div class="opt-sw"></div>
+    </div>
+    <div class="price-line"><div class="pl-amt free" id="plAmt">無料</div><div class="pl-reason" id="plReason">8人まで無料</div></div>
+    <div id="splitNote" style="text-align:center;font-size:12px;color:var(--muted);margin-top:10px"></div>
+    <div class="foot"><div class="btn-row">
+      <button class="btn btn-ghost" onclick="toDeck()">デッキ選択</button>
+      <button class="btn btn-primary" id="setupNext" onclick="afterSetup()">無料で部屋を作る</button>
+    </div></div>
+  </section>
+
+  <!-- PAY -->
+  <section class="screen pay" id="s-pay">
+    <div class="pay-card">
+      <div class="pay-ttl">お支払い</div>
+      <div class="pay-row"><span class="k">デッキ</span><span class="v" id="payDeck">　</span></div>
+      <div class="pay-row"><span class="k">人数</span><span class="v" id="payHead">　</span></div>
+      <div class="pay-row"><span class="k">内訳</span><span class="v" id="payReason">　</span></div>
+      <div class="pay-row" id="payAddonRow" style="display:none"><span class="k">🍺 罰ゲームモード</span><span class="v">＋¥300</span></div>
+      <div class="pay-row total"><span class="k">合計</span><span class="v" id="payTotal">　</span></div>
+      <div class="demo-note">※ デモです。実際はここでStripe決済。下のボタンで成功として進みます。</div>
+      <button class="btn btn-primary" onclick="paySuccess()">支払って部屋を作る（デモ）</button>
+      <button class="btn btn-ghost" style="margin-top:10px" onclick="show('s-setup')">戻る</button>
+    </div>
+  </section>
+
+  <!-- TRAPS (penalty mode) -->
+  <section class="screen" id="s-traps">
+    <div class="head-block" style="margin-bottom:4px">
+      <div class="eyebrow">SET YOUR TRAP</div>
+      <div class="setup-ttl">あなたの罰カードを選ぶ</div>
+      <div class="setup-deck">このカードを「引いた人」が飲みます（最初から持っている分は対象外）。他の人にも内緒で。</div>
+    </div>
+    <div class="scroll trap-list" id="trapList"></div>
+    <div class="foot"><button class="btn btn-primary" id="trapBtn" onclick="confirmTraps()" disabled>この札に決定</button></div>
+  </section>
+
+  <!-- LOBBY -->
+  <section class="screen" id="s-lobby">
+    <div class="lobby-top">
+      <div class="code-label">参加コード</div>
+      <div class="code-big" id="lobbyCode">XXXXX</div>
+      <div class="qr" id="qr"></div>
+      <div class="lobby-count">参加者 <b id="lobbyCount">1</b> / <span id="lobbyTarget">6</span> 人</div>
+    </div>
+    <div class="join-list" id="joinList"></div>
+    <div class="foot">
+      <button class="btn btn-primary" id="startBtn" disabled>全員そろうのを待っています…</button>
+      <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:8px">主催のあなただけが開始できます</div>
+    </div>
+  </section>
+
+  <!-- ASSIGN: 主催が手動で席割り -->
+  <section class="screen" id="s-assign">
+    <div class="head-block" style="margin-bottom:4px">
+      <div class="setup-ttl">席割り</div>
+      <div class="setup-deck">会場で近くの人を同じ卓に。人を選んで、卓をタップで移動</div>
+    </div>
+    <div class="assign-ctrls">
+      <button class="btn btn-ghost mini" onclick="autoAssignAndRender()">おまかせで配置</button>
+      <button class="btn btn-ghost mini" onclick="addTable()">＋ 卓を追加</button>
+    </div>
+    <div class="assign-hint" id="assignHint"></div>
+    <div class="scroll" id="assignBody"></div>
+    <div class="foot"><div class="btn-row">
+      <button class="btn btn-ghost" onclick="show('s-lobby')">戻る</button>
+      <button class="btn btn-primary" id="assignStart" onclick="startFromAssign()" disabled>この席割りで開始</button>
+    </div></div>
+  </section>
+
+  <!-- TABLE (turn / waiting) -->
+  <section class="screen" id="s-table">
+    <div class="tinfo">
+      <div class="l" id="tableLabel">あなたの卓</div>
+      <div class="r">山札 <b id="pileN" class="c-pile">0</b> ／ 場 <b id="fieldN" class="c-field">0</b></div>
+    </div>
+    <div class="turn-state" id="turnState">　</div>
+    <div id="tableBody"></div>
+    <div class="host-bar">
+      <button class="btn btn-ghost" onclick="hostFinish()">終了する（主催・時間で打ち切り）</button>
+    </div>
+  </section>
+
+  <!-- REVEAL -->
+  <section class="screen" id="s-reveal">
+    <div class="reveal-head"><div class="eyebrow">FINAL HAND</div><div class="t">あなたの卓の、それぞれの本音</div></div>
+    <div class="scroll" id="reveal"></div>
+    <div class="cta-host"><div class="c-t">次は、あなたが主催する番</div><div class="c-s">楽しかったら、自分の会でも開いてみよう</div></div>
+    <div class="foot"><button class="btn btn-primary" onclick="toDeck()">別のデッキで主催する</button></div>
+  </section>
+
+</div>
+
+<!-- ANNOUNCE: 札を全面に出して読み上げ・みんなに見せる -->
+<div class="announce" id="announce">
+  <div class="ann-inner">
+    <div class="ann-label" id="annLabel">捨てる札</div>
+    <div class="flip-wrap"><div class="flip" id="annFlip">
+      <div class="face back card-back"><span class="em">裏</span></div>
+      <div class="face front" id="annCard">　</div>
+    </div></div>
+    <div class="ann-hint">読み上げて、みんなに見せてください</div>
+    <div class="ann-actions" id="annActions"></div>
+  </div>
+</div>
+
+<!-- PENALTY: 罰ゲーム発動 -->
+<div class="penalty" id="penalty">
+  <div class="pen-inner">
+    <div class="pen-emoji">🍺</div>
+    <div class="pen-ttl">罰ゲーム！</div>
+    <div class="pen-who" id="penWho"></div>
+    <div class="pen-sub" id="penSub"></div>
+    <button class="btn btn-primary" id="penNext" onclick="confirmPenalty()" style="margin-top:24px;max-width:280px;align-self:center">次へ</button>
+  </div>
+</div>
+
+<script>
+const DECKS = {"ura":{"name":"裏価値観 オリジナル","adult":false,"cards":["男尊女卑","わがまま","自分勝手","性欲が強い","マウントを取りたい","権力を握りたい","見栄っ張り","他人を利用する","ずる賢さ","責任転嫁","陰口が好き","人の不幸は蜜の味","サボりたい","楽して金を稼ぎたい","都合のいい関係が好き","本音と建前を使い分けたい","ネチネチしたい","嫉妬深い","気分屋","逆ギレしがち","プライドが高すぎる","復讐心が強い","独占欲が強い","マイルールを押し付けたい","相手より優位に立ちたい","人の手柄を横取りしたい","お金がすべて","計算高い","カリスマっぽく見せたい","マッチョ思想","感情論で動く","口だけ達者","八方美人","嘘も方便","空気を読ませたい","責任を取らない生き方","人を見下したい","格付けしたい","上司にはゴマをする","部下をこき使いたい","他人にマウントを取られたくない","ケチだけど奢られたい","面倒ごとは押し付けたい","人を操縦したい","楽な道を選びたい","美辞麗句で誤魔化したい","パワーゲームが好き","適当にやり過ごしたい","やる気アピールだけしたい","ダメな自分を正当化したい","ずるい成功をしたい","人を駒として扱いたい","マウントを取られたら取り返したい","謝りたくない","いいとこ取りしたい","褒められたいが努力はしたくない","面倒くさいことをやらずに評価されたい","他人の不幸を密かに願う","ラクして勝ちたい","楽しいことしかやりたくない","いばりたい","優越感に浸りたい","特別扱いされたい","適当に生きたい","悪口を言い合いたい","他人を試したい","騙すより騙される方が悪いと思う","無責任に自由でいたい","バレなきゃOK","ズルができるならしたい","適当に愛されたい","人に期待しないでほしい","めんどくさいことは全部パス","気に入らない人は消えてほしい","権威には逆らわない","楽しいこと以外やりたくない","楽して認められたい","社会のルールより自分ルール","お金があればいい","地位がほしい","嘘でもいいから尊敬されたい","努力せずに結果だけ欲しい","バレなければ嘘をつく","責任を取らなくていい人生がいい","自分の利益が最優先","都合のいい時だけ誠実になりたい","他人の成功が面白くない","人を羨む","とにかく楽したい","結局は世の中、金と権力"]},"work":{"name":"裏・仕事の進め方","adult":false,"cards":["まず動いてから考える","完璧に仕上げないと出せない","締切ギリギリが一番燃える","とにかくスピード重視で出す","質より量で押し切る","量より質にこだわる","数字で結果を語りたい","数字より人の感情を見る","ロジックで筋を通したい","勢いと熱量で進めたい","会議の主導権を握りたい","会議では様子を見て発言を控える","根回しで決着をつけたい","正面から議論で決めたい","偉い人の意見に合わせる","立場が上でも納得しなければ従わない","上司に気に入られたい","評価より自分の納得を優先する","とにかく評価されたい","評価より裁量がほしい","出世したい","出世より自由な働き方がいい","肩書きにこだわる","肩書きより実力で見られたい","お金がモチベーションの中心","お金より面白さで仕事を選ぶ","安定した環境が一番大事","安定より刺激がほしい","新しいことに飛びつきたい","慣れたやり方を変えたくない","リスクを取って一発当てたい","堅実に失敗しない道を選ぶ","自分のやり方を貫きたい","周りに合わせて波風を立てない","一人で黙々と進めたい","チームでわいわい進めたい","細部まで自分の手で確認したい","細かいことは人に任せたい","任せたら口を出さない","任せても結局口を出してしまう","部下を育てるのが好き","部下より自分の成果が大事","手柄は自分のものにしたい","手柄は分け合いたい","責任は持ちたくない","責任を引き受けると燃える","矢面に立つのは避けたい","矢面に立ってでも主張したい","言われたことを正確にこなす","言われる前に動きたい","指示されるのが苦手","指示がある方が安心する","マニュアル通りが好き","マニュアルより自分の感覚で動く","計画を立ててから動く","臨機応変にその場で動く","段取りを組むのが得意","段取りより現場の判断を信じる","効率化に時間を使いたい","多少非効率でも丁寧にやりたい","新しいツールをすぐ試したい","使い慣れた道具で十分","忙しい方が充実する","余白がないと良い仕事はできない","残業してでも仕上げたい","定時で切り上げたい","仕事は人生の中心","仕事は生活の手段と割り切る","成長できる環境を選ぶ","居心地のよさを最優先する","難しい仕事ほどやりたい","楽な仕事を選びたい","面倒な仕事は人に回したい","面倒な仕事こそ自分が引き受ける","専門性を極めたい","広く浅く何でもやりたい","ノウハウは共有したい","ノウハウは抱え込みたい","自分がいないと回らない存在でいたい","自分がいなくても回る仕組みを作りたい","失敗は環境のせいにしたい","失敗は自分の責任と受け止める","批判されると落ち込む","批判は改善のヒントと捉える","褒められると一気にやる気が出る","褒められなくても自分で評価できる","競争に勝ちたい","競争より協調を取りたい","同僚の成功が素直に喜べない","同僚の成功を一緒に喜べる","印象や見せ方を重視する","中身さえ良ければ見せ方は気にしない","忙しいフリで切り抜けたい","暇なときは正直に手を挙げる","変化にはまず反対したくなる","変化を自分から起こしたい","前例がないと不安になる","前例がないことにワクワクする","クレームからは逃げたくなる","クレーム対応こそ腕の見せ所だと思う","楽して出世できたら最高だと思う","苦労してでも実力で認められたい","結局は安定した給料が一番","結局はやりがいがあれば満足"]},"love":{"name":"裏・恋愛観","adult":false,"cards":["追われると冷める","追いかけている時が一番楽しい","駆け引きを楽しみたい","駆け引きなしでまっすぐ向き合いたい","主導権を握っていたい","相手にリードしてほしい","好かれる方が好きになるより嬉しい","自分から好きになりたい","こまめに連絡を取り合いたい","連絡は少なくても平気","一緒にいる時間を最優先したい","一人の時間も同じくらい大事","束縛されると息苦しい","ある程度束縛される方が安心する","相手の交友関係が気になる","相手の交友関係には干渉しない","やきもちを焼かれると愛を感じる","やきもちを焼かれると重いと感じる","嫉妬深い自覚がある","嫉妬はあまりしないタイプ","一途でいたい","同時に複数に心が動くことがある","浮気は絶対に許せない","自分の気の迷いには甘くなる","記念日を大切にしたい","記念日にはこだわらない","誕生日は盛大に祝われたい","祝うより静かに過ごしたい","デート代は出してほしい","割り勘が対等で心地いい","経済力で相手を選ぶ","収入より価値観の一致を見る","見た目から好きになる","中身を知ってから好きになる","周りに自慢できる相手がいい","人にどう見られるかは気にしない","SNSに載せたくなる","二人のことは表に出したくない","ステータスとして恋人がほしい","肩書き抜きで一緒にいたい","喧嘩では勝ちたい","喧嘩しても先に折れられる","謝るのが苦手","自分が悪ければすぐ謝れる","察してほしいタイプ","言葉でちゃんと伝えてほしい","自分の気持ちは言葉にできる","気持ちを言葉にするのが苦手","愛されている確証が欲しい","信じているから確認は要らない","相手を試すような言動をしがち","相手をまっすぐ信じたい","沈黙で気を引こうとする","不満はその場で口に出す","尽くされたい","尽くしたい","感謝されたい","感謝を惜しまない","安定すると気持ちが落ち着く","安定すると物足りなくなる","刺激がないと冷めてくる","刺激より穏やかさを選ぶ","倦怠期は工夫で乗り越えたい","倦怠期が来たら気持ちが離れる","一人が怖くて付き合うことがある","一人の時間を楽しめる","寂しさで相手を選ばないようにしている","寂しいと誰でもよくなりがち","都合のいい関係がラクでいい","中途半端な関係は耐えられない","重い愛は受け取りきれない","重いくらい愛されたい","もっといい人がいる気がしてしまう","今の相手が一番だと思える","隣の芝生が青く見える","自分の選択に納得している","理想の条件は譲れない","条件より一緒にいて楽かどうか","結婚して落ち着きたい","結婚しても自由でいたい","養われたい","対等に支え合いたい","振り回す方が好き","振り回されると本気になる","手に入ると興味が薄れる","手に入れてからが本番だと思う","別れ際に未練が出る","終わった恋は振り返らない","過去の恋を美化しがち","過去より今の関係を見る","復縁を試したくなる","一度別れたら戻らない","一目惚れを信じている","時間をかけて好きになる","運命の相手を待っている","相性は作っていくものだと思う","好きという言葉が欲しい","態度で示してくれれば十分","恋愛は勝ち負けだと思う","恋愛に勝ち負けは持ち込みたくない","最後に大事にしたいのは自分","最後に大事にしたいのは相手"]},"life":{"name":"裏・人生観","adult":false,"cards":["なんとかなると思って生きている","備えあれば憂いなしで生きたい","努力より運に左右されると思う","努力は必ず報われると信じたい","やればできると思っている","できることだけ確実にやりたい","明日からやろうと先延ばしにする","思い立ったらすぐ動く","計画を立てるのが好き","計画より勢いで生きたい","コツコツ積み上げるのが得意","一気に短期集中する方が向いている","飽き性で長続きしない","一度始めたら最後までやり抜く","新しいことに次々挑戦したい","ひとつのことを極めたい","変化を楽しめる","変化が怖い","現状維持が一番安心する","現状に満足できず常に動きたい","リスクを取ってでも挑戦したい","安全な道を選びたい","失敗を恐れて踏み出せない","失敗してもまたやればいいと思える","期待しなければ傷つかないと思う","期待してでも全力で向き合いたい","嫌なことは見ないようにする","嫌なことほど早く片づけたい","後悔はあとでまとめてやってくる","後悔しないよう今を選ぶ","人のせいにすると楽になる","自分の責任として引き受けたい","自由でいたい","守られている安心感がほしい","大人になりきれていない自覚がある","早く一人前として認められたい","努力せず認められたい","努力した分だけ評価されたい","褒められて伸びるタイプ","厳しくされた方が伸びる","批判されると不機嫌になる","批判を素直に受け止めたい","正論を言われると反発したくなる","正論こそ聞き入れたい","自分に甘く他人に厳しい","自分にも他人にも同じ基準で接したい","都合の悪い真実は見ないことにする","不都合な事実こそ知っておきたい","損得で動いてしまう","損得抜きで動ける時に満たされる","善意の裏を探してしまう","人の好意を素直に受け取れる","お金で解決できるなら解決したい","お金より時間を大事にしたい","倹約家でいたい","ケチと言われても貯めたい","今が楽しければそれでいい","将来のために今を我慢できる","老後を考えると不安になる","なるようになると老後も楽観している","健康のために生活を整えたい","わかっていても不摂生をやめられない","痩せたいのに食べたい欲が勝つ","体型より好きに生きる方を取る","早寝早起きに憧れている","夜更かしが自分のリズムだと思う","ルーティンを守ると落ち着く","ルーティンに縛られたくない","理想の自分を思い描くのが好き","理想より今の自分を受け入れたい","他人の目が一番こわい","他人の評価より自分の満足","嫌われたくない一心で動く","嫌われてもいいから本音を言いたい","八方美人で疲れることがある","合わない人とは無理に付き合わない","みんなと同じだと安心する","人と違っていたい","普通でいることに安心する","普通であることが一番嫌だ","幸せの基準を他人と比べてしまう","自分なりの幸せの基準を持ちたい","他人の成功が妬ましい","他人の成功を励みにできる","過去の栄光にすがってしまう","過去よりこれからを見たい","見栄を張ってしまう","ありのままを見せたい","楽して成功したいと思う","苦労してでも納得のいく成功がいい","自由気ままに生きたい","役割や責任の中で生きたい","人の役に立つと満たされる","まず自分が満たされたい","感謝されたくて動くことがある","見返りを求めずに動きたい","退屈が何より苦手","平穏な毎日が何より幸せ","刺激と安心の両方を欲張りたい","結局はラクして幸せになりたい","多少しんどくても充実していたい","自分の人生は自分で選びたい"]},"sex":{"name":"裏・性の本音 (18+)","adult":true,"cards":["性欲は強い方だと思う","性欲は淡白な方だと思う","強い欲を表に出したくない","欲はオープンに伝えたい","自分から誘いたい","誘われる方が好き","雰囲気をしっかり作りたい","雰囲気作りは面倒に感じる","本能のままに動きたい","ムードや段取りを大事にしたい","リードする方が好き","任せて身を委ねたい","主導権を握っていたい","受け身でいる方が落ち着く","してほしいことを言葉にできる","してほしいことを言い出せない","察してほしいタイプ","ちゃんと話し合いたいタイプ","回数を重ねたい","回数より一回の充実を求める","質を大事にしたい","気軽さや勢いを楽しみたい","慣れた相手だと安心する","慣れると刺激が薄れてしまう","マンネリが何より怖い","安定した関係に満足できる","新しい刺激を求めたくなる","同じ相手とじっくり深めたい","見た目に強く惹かれる","内面に惹かれてから気持ちが動く","ギャップに弱い","一貫した相手に安心する","心が伴わないと気乗りしない","心と切り離して楽しめる","恋愛感情がなくても成立すると思う","好きな相手としか考えられない","体の相性を重視する","相性は時間で作るものだと思う","一晩限りの関係も否定しない","一晩限りの関係は虚しく感じる","後腐れのない関係が気楽でいい","特別な関係でなければ満たされない","気軽な関係を望むが口には出さない","関係には責任を持ちたい","浮気は絶対に許せない","自分の気の迷いには甘くなる","独占したい気持ちが強い","相手の自由を尊重したい","嫉妬を隠せない","嫉妬はあまり湧かない","相手の過去が気になる","相手の過去は気にしない","求められると満たされる","求めるのは恥ずかしい","断られるのが怖くて誘えない","断られても引きずらない","拒否されると深く落ち込む","ノーと言うのが苦手","嫌なときははっきり断れる","雰囲気に流されてしまうことがある","気が乗らない時は無理をしない","義務感で応じてしまうことがある","相手に合わせて演じてしまう","自分のペースを大事にしたい","満足していなくてもしたフリをする","満足度は正直に伝えたい","不満を溜め込みがち","不満はその場で言いたい","上手いと思われたい","評価は気にせず楽しみたい","下手だと思われるのが怖い","自信を持って臨みたい","本当は不安の方が大きい","コンプレックスを抱えている","体型が気になって集中できない","体型は気にせず楽しめる","明るい場所だと緊張する","隠さず見せ合える方がいい","加齢とともに自信が揺らぐ","年齢を重ねた今の方が楽しめる","若い相手に惹かれる","対等でいられる相手がいい","刺激と安心の両方が欲しい","安心できる関係を最優先したい","ときめきは長くは続かないと思う","ときめきは育てられると思う","飽きは必ず来ると割り切っている","飽きないよう工夫したい","性の話はタブーだと感じる","性のことをもっと語り合いたい","知識をアップデートしていない自覚がある","新しい知識を積極的に取り入れたい","学ぶことに抵抗がある","学んで上手くなりたい","オープンな人に憧れる","保守的な自分に安心している","冒険してみたい気持ちがある","冒険より安心を選びたい","妄想は豊かだが実行はしない","思ったことは実際に試したい","理想と現実のギャップに戸惑う","ありのままの関係で満たされたい","ガッカリさせたくない一心になる","自分の心地よさも大切にしたい","何より、ちゃんと大事にされたい"]},"sexDeep":{"name":"裏・性の本音 DEEP (18+)","adult":true,"intensity":"explicit","cards":["毎日でも足りないくらい欲しい","一日に何度求めても満たされない","性欲が日常を支配している","我慢する時間が一番のストレス","いつでもスイッチが入る","スイッチが入るまで時間がかかる","完全に支配したい","完全に支配されたい","主導権を奪い合うのが好き","命令されると興奮する","命令する側に回りたい","縛られてみたい","縛ってみたい","焦らされるのがたまらない","焦らして翻弄したい","主導権を握って振り回したい","全部委ねて流されたい","役になりきって演じたい","普段と違う自分になれるのが好き","シチュエーションに強くこだわる","衣装やコスチュームに弱い","呼び方ひとつで気分が変わる","見られていると興奮する","見ている側でいたい","バレそうなスリルがたまらない","声が漏れそうな状況ほど燃える","鏡越しに見るのが好き","写真や映像に残したくなる","残すのは怖いが本当は見返したい","言葉で攻められるのが好き","言葉で攻める側が好き","我慢せず声を出したい","声は最後まで我慢したい","触れてほしい場所に強いこだわりがある","痛みと快感は紙一重だと思う","軽い痛みがあるほうが燃える","とことん優しくされたい","激しいほど満たされる","時間をかけてじっくり味わいたい","短く激しいのが好み","道具を使うことに抵抗がない","道具より生身にこだわりたい","未経験のことは何でも試したい","一度は試したいことが山ほどある","引き出しは多い方だと思う","定番を繰り返す方が安心する","妄想の方が現実よりずっと過激","普段の自分からは想像できない願望がある","誰にも言えない願望を抱えている","背徳感があるほど燃える","禁じられているほど惹かれてしまう","複数人との場面を想像したことがある","同性に興味を持ったことがある","パートナー以外を思い浮かべることがある","妄想の中だけで一線を越えている","バレなければ越えたいと思う瞬間がある","刺激のために相手を変えたくなる","ひとりの相手だけでは物足りなくなる","ひとりの相手をとことん深めたい","開かれた関係に憧れがある","一対一でこそ深まると信じている","経験は多いほど魅力だと思う","経験の数は関係ないと思う","相手の経験を細かく知りたくなる","相手の過去は想像したくない","終わってもしばらく離れたくない","終わったらすぐ一人になりたい","終わってすぐ次を求めてしまう","余韻にいつまでも浸っていたい","自分の体に自信がある","体を褒められると一気に燃える","明るい中で見られたい","暗くないと落ち着かない","相手の反応をじっくり観察したい","自分が乱れる姿を見られたくない","乱れる姿こそ見てほしい","主導権より駆け引きそのものが好き","駆け引き抜きで本能だけで繋がりたい","焦らされる前に求めてしまう","求められるまで動けない","言葉より触れ合いで伝えたい","触れ合いより言葉で高め合いたい","日常では絶対に見せない顔がある","二人きりでだけ素の自分になれる","普段おとなしいほど激しくなる","普段強気でも委ねたくなる","ルールを決めて楽しむのが好き","ルールなんて忘れて没頭したい","焦らしと我慢のせめぎ合いが好き","一気に高まって我を忘れたい","試したい願望をひそかにリストにしている","願望は心の奥にしまったままにしている","相手の弱いところを見つけるのが好き","自分の弱さを委ねられる相手がいい","緊張感のある関係ほど燃える","安心しきった関係でこそ大胆になれる","普段は淡白なのに妄想は激しい","興味は尽きないが実行は慎重","思い立ったらためらわず試す","結局、本気で求め合える相手が一番"]}};
+const DECK_META = {
+  ura:{tag:"本音をさらけ出す、原点の90枚"}, work:{tag:"仕事への本当の向き合い方"},
+  love:{tag:"恋愛で隠している本心"}, life:{tag:"人生に対する裏の構え"},
+  sex:{tag:"性の本音（成人向け）"}, sexDeep:{tag:"さらに踏み込んだ性の本音"},
+};
+const DECK_ORDER = ["ura","work","love","life","sex","sexDeep"];
+const BOT_NAMES = ["たけし","ゆか","Sato","みき","健","あや","リク","なお","Ken","ほのか","大輔","さき","Yuto","えり","翔","まい"];
+
+// 仕様B
+function getRoomPrice(key,n){
+  if(key==="sex")return{yen:980,paid:true,reason:"性デッキ・部屋固定"};
+  if(key==="sexDeep")return{yen:1980,paid:true,reason:"DEEPデッキ・部屋固定"};
+  const f=8,p=100; if(n<=f)return{yen:0,paid:false,reason:f+"人まで無料"};
+  return{yen:(n-f)*p,paid:true,reason:"超過"+(n-f)+"人 × "+p+"円"};
+}
+function priceHint(key){ if(key==="sex")return"980円/部屋"; if(key==="sexDeep")return"1,980円/部屋"; return"8人まで無料・以降100円/人"; }
+function splitIntoTables(n){ let t=Math.max(1,Math.round(n/6)); while(Math.ceil(n/t)>8)t++; const s=Array(t).fill(Math.floor(n/t)); for(let i=0;i<n%t;i++)s[i]++; return s; }
+const yen=n=>"¥"+n.toLocaleString("ja-JP");
+
+const $=id=>document.getElementById(id);
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$(id).classList.add('active');window.scrollTo(0,0);}
+
+let deckKey=null,deck=null,N=6,price=null,code="";
+let players=[],drawPile=[],field=[],turn=0,yourSeat=0,pileEmpty=false,stage="discard",tossCard=null,botTimer=null,finalTurnsLeft=null,fieldView='cards',penaltyMode=false,traps={},lastDrew=null,trapSel=null;
+
+// ---- deck select ----
+function renderDecks(){
+  const g=$('deckGrid'); g.innerHTML='';
+  DECK_ORDER.forEach(key=>{ const d=DECKS[key]; if(!d)return;
+    const t=document.createElement('div'); t.className='deck-tile'+(d.adult?' adult':'');
+    const b=d.adult?`<span class="badge18${d.intensity==='explicit'?' badge-deep':''}">18+</span>`:'';
+    t.innerHTML=`<div class="deck-name">${d.name}${b}</div><div class="deck-tag">${DECK_META[key]?.tag||''}（${d.cards.length}枚）</div><div class="deck-price">${priceHint(key)}</div>`;
+    t.onclick=()=>chooseDeck(key); g.appendChild(t);
+  });
+}
+function applyTheme(k){ document.body.dataset.theme = (k==='sexDeep'?'deep':k==='sex'?'pink':'light'); }
+function chooseDeck(k){ deckKey=k; deck=DECKS[k]; applyTheme(k); if(deck.adult){show('s-age');return;} enterSetup(); }
+function passAge(){ if(deck.intensity==='explicit'){show('s-expr');} else enterSetup(); }
+function passExpr(){ enterSetup(); }
+function toDeck(){ if(botTimer)clearTimeout(botTimer); penaltyMode=false; document.body.dataset.theme='light'; show('s-deck'); }
+
+// ---- setup ----
+function enterSetup(){
+  $('setupDeck').textContent=deck.name;
+  if(!deck.adult) penaltyMode=false;            // 罰ゲームは18禁デッキ限定
+  $('penToggle').style.display = deck.adult ? 'flex' : 'none';
+  renderPenToggle(); updatePrice(); show('s-setup');
+}
+function changeN(d){ N=Math.max(2,Math.min(40,N+d)); $('nNum').textContent=N; updatePrice(); }
+function currentPrice(){
+  const base=getRoomPrice(deckKey,N);
+  const addon=penaltyMode?300:0;
+  const total=base.yen+addon;
+  let reason = addon ? (base.yen>0 ? base.reason+' ＋ 罰ゲーム300円' : 'デッキ無料 ＋ 罰ゲーム300円') : base.reason;
+  return {paid: total>0, yen: total, reason, base, addon};
+}
+function togglePenalty(){ penaltyMode=!penaltyMode; renderPenToggle(); updatePrice(); }
+function renderPenToggle(){ const r=$('penToggle'); if(r) r.classList.toggle('on', penaltyMode); }
+function updatePrice(){
+  price=currentPrice();
+  const a=$('plAmt');
+  if(price.paid){a.textContent=yen(price.yen);a.classList.remove('free');$('setupNext').textContent='支払いへ進む（'+yen(price.yen)+'）';}
+  else{a.textContent='無料';a.classList.add('free');$('setupNext').textContent='無料で部屋を作る';}
+  $('plReason').textContent=price.reason;
+  const sizes=splitIntoTables(N);
+  $('splitNote').textContent = sizes.length>1 ? `${N}人 → ${sizes.length}卓に分割（${sizes.join("・")}人）。あなたは1卓でプレイします。` : `${N}人 → 1卓でプレイ`;
+}
+function afterSetup(){ if(price.paid) enterPay(); else openLobby(); }
+
+// ---- pay ----
+function enterPay(){
+  $('payDeck').textContent=deck.name; $('payHead').textContent=N+'人';
+  $('payAddonRow').style.display = price.addon ? 'flex' : 'none';
+  $('payReason').textContent=price.base.reason;
+  $('payTotal').textContent=yen(price.yen);
+  show('s-pay');
+}
+function paySuccess(){ openLobby(); }
+
+// ---- lobby (疑似的に参加者が集まる) ----
+function genCode(){const a="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let s="";for(let i=0;i<5;i++)s+=a[Math.random()*a.length|0];return s;}
+function renderQR(seed){
+  const q=$('qr'); q.innerHTML=''; let h=0; for(const c of seed)h=(h*31+c.charCodeAt(0))>>>0;
+  for(let i=0;i<121;i++){ const cell=document.createElement('i');
+    const r=Math.floor(i/11),c=i%11; const finder=(r<3&&c<3)||(r<3&&c>7)||(r>7&&c<3);
+    h=(h*1103515245+12345)>>>0; if(!(finder|| (h%2))) cell.classList.add('off'); q.appendChild(cell); }
+}
+// 指定人数ぶんの参加者名を用意（プール超過分は連番で補う）
+function makeNames(count){
+  const base=shuffle(BOT_NAMES); const out=[];
+  for(let i=0;i<count;i++){ const nm=base[i%base.length]; out.push(i<base.length?nm:nm+"・"+(Math.floor(i/base.length)+1)); }
+  return out;
+}
+function openLobby(){
+  code=genCode(); $('lobbyCode').textContent=code; renderQR(code);
+  $('lobbyTarget').textContent=N;
+  const youName=$('yourName').value||'あなた';
+  const names=makeNames(N-1);
+  window.__youName=youName; window.__lobbyNames=names;
+  const list=$('joinList'); list.innerHTML='';
+  const you=document.createElement('div'); you.className='join-pill you'; you.textContent=youName+'（主催）'; list.appendChild(you);
+  let joined=1; $('lobbyCount').textContent=joined;
+  const sb=$('startBtn'); sb.disabled=true; sb.textContent='参加者を待っています…'; sb.onclick=goAssign;
+  show('s-lobby');
+  (function joinNext(){
+    if(joined-1>=names.length){ sb.disabled=false; sb.textContent='全員そろった！ 席を割り当てる'; return; }
+    const p=document.createElement('div'); p.className='join-pill'; p.textContent=names[joined-1]; list.appendChild(p);
+    joined++; $('lobbyCount').textContent=joined;
+    botTimer=setTimeout(joinNext, 320+Math.random()*320);
+  })();
+}
+
+// ---- 席割り（主催が手動で割り振り）----
+let aParts=[], aTables=[], aUnassigned=[], aSel=null;
+function nameOf(id){ return aParts.find(p=>p.id===id); }
+function goAssign(){
+  if(botTimer)clearTimeout(botTimer);
+  aParts=[{id:0,name:window.__youName,isYou:true}];
+  window.__lobbyNames.forEach((nm,i)=>aParts.push({id:i+1,name:nm,isYou:false}));
+  autoAssign();
+  show('s-assign'); renderAssign();
+}
+function autoAssign(){
+  const ids=aParts.map(p=>p.id);
+  const sizes=splitIntoTables(ids.length);
+  aTables=[]; let k=0; for(const s of sizes){ aTables.push(ids.slice(k,k+s)); k+=s; }
+  aUnassigned=[]; aSel=null;
+}
+function autoAssignAndRender(){ autoAssign(); renderAssign(); setHint('おまかせで配置しました。人を選んで卓をタップで調整できます'); }
+function addTable(){ aTables.push([]); renderAssign(); }
+function setHint(msg){ $('assignHint').textContent=msg||''; clearTimeout(window.__h); if(msg) window.__h=setTimeout(()=>$('assignHint').textContent='',2000); }
+function moveTo(id,key){
+  aUnassigned=aUnassigned.filter(x=>x!==id);
+  aTables.forEach(t=>{ const i=t.indexOf(id); if(i>=0)t.splice(i,1); });
+  if(key==='unassigned') aUnassigned.push(id); else aTables[key].push(id);
+  aSel=null; renderAssign();
+}
+function renderAssign(){
+  const wrap=$('assignBody'); wrap.innerHTML='';
+  wrap.appendChild(tableCard('未割り当て', aUnassigned, 'unassigned'));
+  aTables.forEach((t,i)=>wrap.appendChild(tableCard('卓'+(i+1), t, i)));
+  const valid = aUnassigned.length===0 && aTables.length>=1 && aTables.every(t=>t.length>=2 && t.length<=8);
+  $('assignStart').disabled=!valid;
+}
+function tableCard(title, ids, key){
+  const card=document.createElement('div'); card.className='tcard'+(key==='unassigned'?' unassigned':'');
+  let warn=''; if(key!=='unassigned' && (ids.length<2 || ids.length>8)) warn=' warn';
+  const head=document.createElement('div'); head.className='tcard-head';
+  head.innerHTML=`<span class="tcard-title${warn}">${title}（${ids.length}人）</span>`;
+  if(key!=='unassigned' && ids.length===0){
+    const rm=document.createElement('button'); rm.className='tcard-rm'; rm.textContent='× 卓を削除';
+    rm.onclick=(e)=>{e.stopPropagation(); aTables.splice(key,1); renderAssign();}; head.appendChild(rm);
+  }
+  card.appendChild(head);
+  const pills=document.createElement('div'); pills.className='tcard-pills';
+  ids.forEach(id=>{ const p=nameOf(id); const pill=document.createElement('div');
+    pill.className='apill'+(p.isYou?' you':'')+(aSel===id?' sel':''); pill.textContent=p.name+(p.isYou?'（あなた）':'');
+    pill.onclick=(e)=>{e.stopPropagation(); aSel=(aSel===id?null:id); renderAssign();}; pills.appendChild(pill); });
+  if(ids.length===0){ const e=document.createElement('div'); e.className='tcard-empty'; e.textContent=aSel!==null?'ここをタップで移動':'空き'; pills.appendChild(e); }
+  card.appendChild(pills);
+  card.onclick=()=>{ if(aSel===null) return;
+    if(key!=='unassigned' && ids.length>=8 && !ids.includes(aSel)){ setHint('1卓は最大8人です'); return; }
+    moveTo(aSel,key); };
+  return card;
+}
+function startFromAssign(){
+  const my=aTables.find(t=>t.includes(0)); // id0=あなた
+  const members=my.map(id=>nameOf(id));
+  window.__myTable={ size:members.length, mates:members.filter(p=>!p.isYou).map(p=>p.name) };
+  startGame();
+}
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+// ---- start (あなたの卓を配って開始) ----
+function startGame(){
+  const {size,mates}=window.__myTable;
+  const cards=shuffle(deck.cards);
+  players=[];
+  const youName=$('yourName').value||'あなた';
+  const seats=shuffle([youName,...mates]); // 着席順をシャッフル
+  seats.forEach((nm,seat)=>players.push({name:nm,isYou:nm===youName,hand:cards.splice(0,5),seat}));
+  yourSeat=players.findIndex(p=>p.isYou);
+  drawPile=cards;            // 残り全部（デモはこのまま回せるが長いので主催終了も使える）
+  field=[]; turn=0; pileEmpty=false; stage="discard"; tossCard=null; finalTurnsLeft=null; fieldView='cards';
+  $('tableLabel').textContent=`あなたの卓（${size}人）`;
+  traps={};
+  if(penaltyMode){ enterTraps(); } else { show('s-table'); renderTable(); }
+}
+
+// ---- traps (penalty mode) ----
+function enterTraps(){
+  trapSel=null;
+  const list=$('trapList'); list.innerHTML='';
+  deck.cards.forEach(c=>{
+    const it=elx('div','trap-item',c);
+    it.onclick=()=>{ trapSel=c; list.querySelectorAll('.trap-item').forEach(x=>x.classList.remove('sel')); it.classList.add('sel'); $('trapBtn').disabled=false; };
+    list.appendChild(it);
+  });
+  $('trapBtn').disabled=true;
+  show('s-traps');
+}
+function confirmTraps(){
+  if(!trapSel) return;
+  traps={}; traps[trapSel]=players[yourSeat].name;
+  // ボットの罠（重複しないようランダムに1枚ずつ）
+  const used=new Set([trapSel]);
+  players.forEach(p=>{ if(p.isYou) return; let c,g=0; do{ c=deck.cards[(Math.random()*deck.cards.length)|0]; }while(used.has(c)&&g++<60); used.add(c); traps[c]=p.name; });
+  show('s-table'); renderTable();
+}
+
+// ---- table render ----
+function renderTable(){
+  $('pileN').textContent=drawPile.length; $('fieldN').textContent=field.length;
+  const body=$('tableBody'); body.innerHTML='';
+  const me=players[yourSeat], cur=players[turn];
+
+  if(turn===yourSeat){
+    $('turnState').textContent='あなたの番です'; $('turnState').className='turn-state you';
+    if(stage==="discard"){
+      body.appendChild(elx('div','play-prompt','最も「当てはまらない」1枚を捨てる'));
+      const fan=elx('div','hand-fan');
+      me.hand.forEach(c=>{ const card=pcard(c); card.onclick=()=>pickDiscard(c); fan.appendChild(card); });
+      body.appendChild(fan);
+    } else {
+      const finalR = drawPile.length===0;
+      const pr=elx('div','play-prompt');
+      pr.innerHTML = finalR ? '山札は尽きました。<b>場から最後の1枚</b>を拾って終了（自分の捨て札もOK）' : '捨てる札：<b>'+tossCard+'</b> ／ 1枚を引く';
+      body.appendChild(pr);
+      const area=elx('div','draw-area');
+      if(!finalR){
+        const stack=elx('div','pile-stack');
+        stack.innerHTML='<div class="back b1 card-back"></div><div class="back b2 card-back"></div><div class="back top card-back"><span class="em">裏</span></div>';
+        stack.onclick=()=>chooseDraw("pile"); area.appendChild(stack);
+        area.appendChild(elx('div','pile-count','山札 '+drawPile.length+' 枚'));
+        area.appendChild(elx('div','draw-sep','― または 場から拾う ―'));
+      }
+      area.appendChild(renderField(true));
+      body.appendChild(area);
+    }
+  } else {
+    $('turnState').textContent=cur.name+' さんが考え中…'; $('turnState').className='turn-state wait';
+    body.appendChild(elx('div','zone-label lbl-field','場（誰でも拾える捨て札）'));
+    body.appendChild(renderField(false));
+    body.appendChild(elx('div','zone-label lbl-hand','あなたの手札（自分の番で操作できます）'));
+    const fan=elx('div','hand-fan locked');
+    me.hand.forEach(c=>fan.appendChild(pcard(c)));
+    body.appendChild(fan);
+    scheduleBot();
+  }
+}
+function elx(tag,cls,txt){ const e=document.createElement(tag); if(cls)e.className=cls; if(txt!=null)e.textContent=txt; return e; }
+function pcard(text){
+  const d=elx('div','pcard');
+  d.innerHTML='<span class="pc-cnr tl">❖</span><span class="pc-cnr br">❖</span><div class="pc-in"></div>';
+  d.querySelector('.pc-in').textContent=text; return d;
+}
+function renderField(tappable){
+  const wrap=elx('div','field-wrap');
+  const tg=elx('div','view-toggle');
+  const b1=elx('button','vt'+(fieldView==='cards'?' on':''),'カード'); b1.onclick=(e)=>{e.stopPropagation(); setFieldView('cards');};
+  const b2=elx('button','vt'+(fieldView==='text'?' on':''),'リスト'); b2.onclick=(e)=>{e.stopPropagation(); setFieldView('text');};
+  tg.append(b1,b2); wrap.appendChild(tg);
+  if(field.length===0){ wrap.appendChild(elx('div','empty-note','まだ場に札がありません')); return wrap; }
+  if(fieldView==='cards'){
+    const f=elx('div','field-fan'+(tappable?'':' static'));
+    field.forEach(c=>{ const card=pcard(c); card.classList.add('field'); if(tappable) card.onclick=()=>chooseDraw({fromField:c}); f.appendChild(card); });
+    wrap.appendChild(f);
+  } else {
+    const list=elx('div','field-list'+(tappable?'':' static'));
+    field.forEach(c=>{ const it=elx('div','fl-item',c); if(tappable) it.onclick=()=>chooseDraw({fromField:c}); list.appendChild(it); });
+    wrap.appendChild(list);
+  }
+  return wrap;
+}
+function setFieldView(v){ fieldView=v; renderTable(); }
+
+// ---- your move（札を全面に出して読み上げてから確定）----
+function pickDiscard(c){ tossCard=c; showAnnounce("discard", c); }
+function confirmDiscard(){
+  hideAnnounce();
+  if(drawPile.length===0){ // 最後のターン: 捨て札を先に場へ（自分のも拾えるように）
+    const me=players[yourSeat]; const di=me.hand.indexOf(tossCard); me.hand.splice(di,1);
+    field.push(tossCard);
+  }
+  stage="draw"; renderTable();
+}
+function cancelDiscard(){ tossCard=null; hideAnnounce(); renderTable(); }
+function chooseDraw(draw){
+  const me=players[yourSeat];
+  if(drawPile.length===0){ // 最後のターン: 場から1枚だけ拾って終了（自分の捨て札も可）
+    const want=draw.fromField; const fi=field.indexOf(want); const drew=field.splice(fi,1)[0];
+    me.hand.push(drew); tossCard=null; stage="discard"; lastDrew=drew;
+    showAnnounce("drew", drew, "場から取った最後の1枚");
+    return;
+  }
+  let drew;
+  if(draw==="pile"){ drew=drawPile.shift(); }
+  else { const fi=field.indexOf(draw.fromField); drew=field.splice(fi,1)[0]; }
+  const di=me.hand.indexOf(tossCard); me.hand.splice(di,1);
+  me.hand.push(drew); field.push(tossCard); tossCard=null; stage="discard"; lastDrew=drew;
+  showAnnounce("drew", drew, draw==="pile" ? "山札から引いた札" : "場から取った札");
+}
+function confirmDrew(){
+  hideAnnounce();
+  if(penaltyMode && traps[lastDrew]){ firePenalty(players[yourSeat].name, lastDrew); }
+  else advance();
+}
+function firePenalty(drawerName, card){
+  $('penWho').textContent = drawerName+' さん、飲んで！';
+  $('penSub').textContent = (traps[card]||'') + ' さんが仕掛けた「'+card+'」を引きました';
+  $('penalty').classList.add('show');
+}
+function confirmPenalty(){ $('penalty').classList.remove('show'); advance(); }
+
+function showAnnounce(type, card, labelText){
+  const lbl=$('annLabel'), flip=$('annFlip'), front=$('annCard'), act=$('annActions');
+  front.textContent=card;
+  flip.classList.remove('flipped'); flip.classList.toggle('discard', type==='discard');
+  act.innerHTML='';
+  if(type==="discard"){
+    lbl.textContent="捨てる札"; lbl.className='ann-label discard';
+    act.append(mkBtn('この札を捨てる','btn-primary',confirmDiscard), mkBtn('選び直す','btn-ghost',cancelDiscard));
+  } else {
+    lbl.textContent=labelText||"引いた札"; lbl.className='ann-label drew';
+    act.append(mkBtn('確定して次の人へ','btn-primary',confirmDrew));
+  }
+  $('announce').classList.add('show');
+  // 裏面を見せてから、少し置いてめくる
+  requestAnimationFrame(()=>setTimeout(()=>flip.classList.add('flipped'), 200));
+}
+function hideAnnounce(){ $('announce').classList.remove('show'); }
+function mkBtn(text,cls,fn){ const b=document.createElement('button'); b.className='btn '+cls; b.textContent=text; b.onclick=fn; return b; }
+
+// ---- bot move ----
+function scheduleBot(){ if(botTimer)clearTimeout(botTimer); botTimer=setTimeout(botPlay, 1100); }
+function botPlay(){
+  const b=players[turn];
+  const di=Math.random()*b.hand.length|0; const toss=b.hand.splice(di,1)[0];
+  let drew;
+  if(drawPile.length===0){ // 最後のターン: 場へ出してから場から1枚（自分のも可）
+    field.push(toss);
+    const fi=Math.random()*field.length|0; drew=field.splice(fi,1)[0]; b.hand.push(drew);
+  } else {
+    if(field.length>0 && Math.random()<0.25){ const fi=Math.random()*field.length|0; drew=field.splice(fi,1)[0]; }
+    else { drew=drawPile.shift(); }
+    b.hand.push(drew); field.push(toss);
+  }
+  if(penaltyMode && traps[drew]){ firePenalty(b.name, drew); }
+  else advance();
+}
+
+// ---- turn advance & end ----
+function advance(){
+  if(drawPile.length===0 && finalTurnsLeft===null){ finalTurnsLeft=players.length; } // 全員が最後の1ターンずつ
+  else if(finalTurnsLeft!==null){ finalTurnsLeft--; }
+  if(finalTurnsLeft!==null && finalTurnsLeft<=0){ reveal(); return; }
+  turn=(turn+1)%players.length; renderTable();
+}
+function hostFinish(){ if(botTimer)clearTimeout(botTimer); reveal(); }
+
+// ---- reveal ----
+function reveal(){
+  if(botTimer)clearTimeout(botTimer);
+  const box=$('reveal'); box.innerHTML='';
+  players.slice().sort((a,b)=>a.seat-b.seat).forEach(p=>{
+    const row=document.createElement('div'); row.className='player-row'+(p.isYou?' you':'');
+    const cards=p.hand.map((c,i)=>`<div class="vcard${i===4?' full':''}">${c}</div>`).join('');
+    row.innerHTML=`<div class="nm">${p.name}${p.isYou?'<span class="me">あなた</span>':''}</div><div class="player-cards">${cards}</div>`;
+    box.appendChild(row);
+  });
+  show('s-reveal');
+}
+
+renderDecks();
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+project_id = "ura-values-game"
+
+[db]
+port = 54322
+major_version = 15
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+
+[auth]
+enabled = true
+# 匿名サインインを使用（本番側 Dashboard でも ON にすること）
+enable_anonymous_sign_ins = true
+
+[realtime]
+enabled = true
