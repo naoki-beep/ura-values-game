@@ -783,6 +783,9 @@ async function doJoinRoom() {
   $('joinError').textContent = '';
   try {
     await net.joinRoom({ code: joinCode, name });
+    // デッキ情報を取得してテーマを適用
+    const { data: sess } = await net.supabase.from('sessions').select('deck_key,penalty_mode').eq('id', net.store.sessionId).single();
+    if (sess) { deckKey=sess.deck_key; deck=DECKS[deckKey]; penaltyMode=sess.penalty_mode; applyTheme(deckKey); }
     $('lobbyCode').textContent = joinCode;
     $('qrImg').src = '';
     $('joinUrl').textContent = '';
