@@ -269,7 +269,7 @@
 </style>
 </head>
 <body>
-<div class="demo-banner">UXプレビュー：他の参加者はボットが自動で動きます（実際は各自のスマホ）</div>
+<div class="demo-banner" id="topBanner" style="display:none"></div>
 <div class="wrap">
 
   <!-- DECK -->
@@ -400,7 +400,11 @@
       <div class="setup-deck">このカードを「引いた人」が飲みます（最初から持っている分は対象外）。他の人にも内緒で。</div>
     </div>
     <div class="scroll trap-list" id="trapList"></div>
-    <div class="foot"><button class="btn btn-primary" id="trapBtn" onclick="confirmTraps()" disabled>この札に決定</button></div>
+    <div class="foot" style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-primary" id="trapBtn" onclick="confirmTraps()" disabled>この札に決定</button>
+      <div id="trapSetMsg" style="text-align:center;color:var(--muted);font-size:13px;min-height:18px"></div>
+      <button class="btn btn-ghost" id="trapHostBtn" style="display:none;font-size:13px" onclick="hostBeginPlay()">主催として締める（未設定者はナシで開始）</button>
+    </div>
   </section>
 
   <!-- LOBBY -->
@@ -408,13 +412,27 @@
     <div class="lobby-top">
       <div class="code-label">参加コード</div>
       <div class="code-big" id="lobbyCode">XXXXX</div>
-      <div class="qr" id="qr"></div>
-      <div class="lobby-count">参加者 <b id="lobbyCount">1</b> / <span id="lobbyTarget">6</span> 人</div>
+      <img id="qrImg" alt="QR" style="width:128px;height:128px;margin:12px auto 6px;display:block;border-radius:10px;border:1px solid var(--line);background:#fff">
+      <div id="joinUrl" style="font-size:10px;color:var(--muted);text-align:center;word-break:break-all;max-width:280px;margin:0 auto 6px;padding:0 8px"></div>
+      <div class="lobby-count">参加者 <b id="lobbyCount">0</b> / <span id="lobbyTarget">?</span> 人</div>
     </div>
     <div class="join-list" id="joinList"></div>
     <div class="foot">
-      <button class="btn btn-primary" id="startBtn" disabled>全員そろうのを待っています…</button>
-      <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:8px">主催のあなただけが開始できます</div>
+      <button class="btn btn-primary" id="startBtn" style="display:none" disabled>参加者を待っています…</button>
+      <div id="lobbyWait" style="text-align:center;color:var(--muted);font-size:13px;padding:10px 0;display:none">ゲームが始まるまでお待ちください…</div>
+      <div id="lobbyHostNote" style="text-align:center;font-size:11px;color:var(--muted);margin-top:6px"></div>
+    </div>
+  </section>
+
+  <!-- JOIN (参加者がQRコードで来た場合) -->
+  <section class="screen gate" id="s-join">
+    <div class="ic">入室</div>
+    <div class="g-ttl">部屋に参加する</div>
+    <div class="g-sub">コード <b id="joinCodeDisp" style="color:var(--hi);font-family:'Shippori Mincho',serif;letter-spacing:.1em"></b> の部屋です。<br>お名前を入力してください。</div>
+    <div class="actions">
+      <input class="field-input" id="joinName" placeholder="あなたの表示名（例：Ken）" maxlength="12" style="margin-bottom:0">
+      <button class="btn btn-primary" onclick="doJoinRoom()">参加する</button>
+      <div id="joinError" style="color:var(--accent);font-size:13px;text-align:center;min-height:18px"></div>
     </div>
   </section>
 
@@ -444,7 +462,7 @@
     </div>
     <div class="turn-state" id="turnState">　</div>
     <div id="tableBody"></div>
-    <div class="host-bar">
+    <div class="host-bar" id="hostBar" style="display:none">
       <button class="btn btn-ghost" onclick="hostFinish()">終了する（主催・時間で打ち切り）</button>
     </div>
   </section>
@@ -483,6 +501,8 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="./config.js"></script>
 <script>
 const DECKS = {"ura":{"name":"裏価値観 オリジナル","adult":false,"cards":["男尊女卑","わがまま","自分勝手","性欲が強い","マウントを取りたい","権力を握りたい","見栄っ張り","他人を利用する","ずる賢さ","責任転嫁","陰口が好き","人の不幸は蜜の味","サボりたい","楽して金を稼ぎたい","都合のいい関係が好き","本音と建前を使い分けたい","ネチネチしたい","嫉妬深い","気分屋","逆ギレしがち","プライドが高すぎる","復讐心が強い","独占欲が強い","マイルールを押し付けたい","相手より優位に立ちたい","人の手柄を横取りしたい","お金がすべて","計算高い","カリスマっぽく見せたい","マッチョ思想","感情論で動く","口だけ達者","八方美人","嘘も方便","空気を読ませたい","責任を取らない生き方","人を見下したい","格付けしたい","上司にはゴマをする","部下をこき使いたい","他人にマウントを取られたくない","ケチだけど奢られたい","面倒ごとは押し付けたい","人を操縦したい","楽な道を選びたい","美辞麗句で誤魔化したい","パワーゲームが好き","適当にやり過ごしたい","やる気アピールだけしたい","ダメな自分を正当化したい","ずるい成功をしたい","人を駒として扱いたい","マウントを取られたら取り返したい","謝りたくない","いいとこ取りしたい","褒められたいが努力はしたくない","面倒くさいことをやらずに評価されたい","他人の不幸を密かに願う","ラクして勝ちたい","楽しいことしかやりたくない","いばりたい","優越感に浸りたい","特別扱いされたい","適当に生きたい","悪口を言い合いたい","他人を試したい","騙すより騙される方が悪いと思う","無責任に自由でいたい","バレなきゃOK","ズルができるならしたい","適当に愛されたい","人に期待しないでほしい","めんどくさいことは全部パス","気に入らない人は消えてほしい","権威には逆らわない","楽しいこと以外やりたくない","楽して認められたい","社会のルールより自分ルール","お金があればいい","地位がほしい","嘘でもいいから尊敬されたい","努力せずに結果だけ欲しい","バレなければ嘘をつく","責任を取らなくていい人生がいい","自分の利益が最優先","都合のいい時だけ誠実になりたい","他人の成功が面白くない","人を羨む","とにかく楽したい","結局は世の中、金と権力"]},"work":{"name":"裏・仕事の進め方","adult":false,"cards":["まず動いてから考える","完璧に仕上げないと出せない","締切ギリギリが一番燃える","とにかくスピード重視で出す","質より量で押し切る","量より質にこだわる","数字で結果を語りたい","数字より人の感情を見る","ロジックで筋を通したい","勢いと熱量で進めたい","会議の主導権を握りたい","会議では様子を見て発言を控える","根回しで決着をつけたい","正面から議論で決めたい","偉い人の意見に合わせる","立場が上でも納得しなければ従わない","上司に気に入られたい","評価より自分の納得を優先する","とにかく評価されたい","評価より裁量がほしい","出世したい","出世より自由な働き方がいい","肩書きにこだわる","肩書きより実力で見られたい","お金がモチベーションの中心","お金より面白さで仕事を選ぶ","安定した環境が一番大事","安定より刺激がほしい","新しいことに飛びつきたい","慣れたやり方を変えたくない","リスクを取って一発当てたい","堅実に失敗しない道を選ぶ","自分のやり方を貫きたい","周りに合わせて波風を立てない","一人で黙々と進めたい","チームでわいわい進めたい","細部まで自分の手で確認したい","細かいことは人に任せたい","任せたら口を出さない","任せても結局口を出してしまう","部下を育てるのが好き","部下より自分の成果が大事","手柄は自分のものにしたい","手柄は分け合いたい","責任は持ちたくない","責任を引き受けると燃える","矢面に立つのは避けたい","矢面に立ってでも主張したい","言われたことを正確にこなす","言われる前に動きたい","指示されるのが苦手","指示がある方が安心する","マニュアル通りが好き","マニュアルより自分の感覚で動く","計画を立ててから動く","臨機応変にその場で動く","段取りを組むのが得意","段取りより現場の判断を信じる","効率化に時間を使いたい","多少非効率でも丁寧にやりたい","新しいツールをすぐ試したい","使い慣れた道具で十分","忙しい方が充実する","余白がないと良い仕事はできない","残業してでも仕上げたい","定時で切り上げたい","仕事は人生の中心","仕事は生活の手段と割り切る","成長できる環境を選ぶ","居心地のよさを最優先する","難しい仕事ほどやりたい","楽な仕事を選びたい","面倒な仕事は人に回したい","面倒な仕事こそ自分が引き受ける","専門性を極めたい","広く浅く何でもやりたい","ノウハウは共有したい","ノウハウは抱え込みたい","自分がいないと回らない存在でいたい","自分がいなくても回る仕組みを作りたい","失敗は環境のせいにしたい","失敗は自分の責任と受け止める","批判されると落ち込む","批判は改善のヒントと捉える","褒められると一気にやる気が出る","褒められなくても自分で評価できる","競争に勝ちたい","競争より協調を取りたい","同僚の成功が素直に喜べない","同僚の成功を一緒に喜べる","印象や見せ方を重視する","中身さえ良ければ見せ方は気にしない","忙しいフリで切り抜けたい","暇なときは正直に手を挙げる","変化にはまず反対したくなる","変化を自分から起こしたい","前例がないと不安になる","前例がないことにワクワクする","クレームからは逃げたくなる","クレーム対応こそ腕の見せ所だと思う","楽して出世できたら最高だと思う","苦労してでも実力で認められたい","結局は安定した給料が一番","結局はやりがいがあれば満足"]},"love":{"name":"裏・恋愛観","adult":false,"cards":["追われると冷める","追いかけている時が一番楽しい","駆け引きを楽しみたい","駆け引きなしでまっすぐ向き合いたい","主導権を握っていたい","相手にリードしてほしい","好かれる方が好きになるより嬉しい","自分から好きになりたい","こまめに連絡を取り合いたい","連絡は少なくても平気","一緒にいる時間を最優先したい","一人の時間も同じくらい大事","束縛されると息苦しい","ある程度束縛される方が安心する","相手の交友関係が気になる","相手の交友関係には干渉しない","やきもちを焼かれると愛を感じる","やきもちを焼かれると重いと感じる","嫉妬深い自覚がある","嫉妬はあまりしないタイプ","一途でいたい","同時に複数に心が動くことがある","浮気は絶対に許せない","自分の気の迷いには甘くなる","記念日を大切にしたい","記念日にはこだわらない","誕生日は盛大に祝われたい","祝うより静かに過ごしたい","デート代は出してほしい","割り勘が対等で心地いい","経済力で相手を選ぶ","収入より価値観の一致を見る","見た目から好きになる","中身を知ってから好きになる","周りに自慢できる相手がいい","人にどう見られるかは気にしない","SNSに載せたくなる","二人のことは表に出したくない","ステータスとして恋人がほしい","肩書き抜きで一緒にいたい","喧嘩では勝ちたい","喧嘩しても先に折れられる","謝るのが苦手","自分が悪ければすぐ謝れる","察してほしいタイプ","言葉でちゃんと伝えてほしい","自分の気持ちは言葉にできる","気持ちを言葉にするのが苦手","愛されている確証が欲しい","信じているから確認は要らない","相手を試すような言動をしがち","相手をまっすぐ信じたい","沈黙で気を引こうとする","不満はその場で口に出す","尽くされたい","尽くしたい","感謝されたい","感謝を惜しまない","安定すると気持ちが落ち着く","安定すると物足りなくなる","刺激がないと冷めてくる","刺激より穏やかさを選ぶ","倦怠期は工夫で乗り越えたい","倦怠期が来たら気持ちが離れる","一人が怖くて付き合うことがある","一人の時間を楽しめる","寂しさで相手を選ばないようにしている","寂しいと誰でもよくなりがち","都合のいい関係がラクでいい","中途半端な関係は耐えられない","重い愛は受け取りきれない","重いくらい愛されたい","もっといい人がいる気がしてしまう","今の相手が一番だと思える","隣の芝生が青く見える","自分の選択に納得している","理想の条件は譲れない","条件より一緒にいて楽かどうか","結婚して落ち着きたい","結婚しても自由でいたい","養われたい","対等に支え合いたい","振り回す方が好き","振り回されると本気になる","手に入ると興味が薄れる","手に入れてからが本番だと思う","別れ際に未練が出る","終わった恋は振り返らない","過去の恋を美化しがち","過去より今の関係を見る","復縁を試したくなる","一度別れたら戻らない","一目惚れを信じている","時間をかけて好きになる","運命の相手を待っている","相性は作っていくものだと思う","好きという言葉が欲しい","態度で示してくれれば十分","恋愛は勝ち負けだと思う","恋愛に勝ち負けは持ち込みたくない","最後に大事にしたいのは自分","最後に大事にしたいのは相手"]},"life":{"name":"裏・人生観","adult":false,"cards":["なんとかなると思って生きている","備えあれば憂いなしで生きたい","努力より運に左右されると思う","努力は必ず報われると信じたい","やればできると思っている","できることだけ確実にやりたい","明日からやろうと先延ばしにする","思い立ったらすぐ動く","計画を立てるのが好き","計画より勢いで生きたい","コツコツ積み上げるのが得意","一気に短期集中する方が向いている","飽き性で長続きしない","一度始めたら最後までやり抜く","新しいことに次々挑戦したい","ひとつのことを極めたい","変化を楽しめる","変化が怖い","現状維持が一番安心する","現状に満足できず常に動きたい","リスクを取ってでも挑戦したい","安全な道を選びたい","失敗を恐れて踏み出せない","失敗してもまたやればいいと思える","期待しなければ傷つかないと思う","期待してでも全力で向き合いたい","嫌なことは見ないようにする","嫌なことほど早く片づけたい","後悔はあとでまとめてやってくる","後悔しないよう今を選ぶ","人のせいにすると楽になる","自分の責任として引き受けたい","自由でいたい","守られている安心感がほしい","大人になりきれていない自覚がある","早く一人前として認められたい","努力せず認められたい","努力した分だけ評価されたい","褒められて伸びるタイプ","厳しくされた方が伸びる","批判されると不機嫌になる","批判を素直に受け止めたい","正論を言われると反発したくなる","正論こそ聞き入れたい","自分に甘く他人に厳しい","自分にも他人にも同じ基準で接したい","都合の悪い真実は見ないことにする","不都合な事実こそ知っておきたい","損得で動いてしまう","損得抜きで動ける時に満たされる","善意の裏を探してしまう","人の好意を素直に受け取れる","お金で解決できるなら解決したい","お金より時間を大事にしたい","倹約家でいたい","ケチと言われても貯めたい","今が楽しければそれでいい","将来のために今を我慢できる","老後を考えると不安になる","なるようになると老後も楽観している","健康のために生活を整えたい","わかっていても不摂生をやめられない","痩せたいのに食べたい欲が勝つ","体型より好きに生きる方を取る","早寝早起きに憧れている","夜更かしが自分のリズムだと思う","ルーティンを守ると落ち着く","ルーティンに縛られたくない","理想の自分を思い描くのが好き","理想より今の自分を受け入れたい","他人の目が一番こわい","他人の評価より自分の満足","嫌われたくない一心で動く","嫌われてもいいから本音を言いたい","八方美人で疲れることがある","合わない人とは無理に付き合わない","みんなと同じだと安心する","人と違っていたい","普通でいることに安心する","普通であることが一番嫌だ","幸せの基準を他人と比べてしまう","自分なりの幸せの基準を持ちたい","他人の成功が妬ましい","他人の成功を励みにできる","過去の栄光にすがってしまう","過去よりこれからを見たい","見栄を張ってしまう","ありのままを見せたい","楽して成功したいと思う","苦労してでも納得のいく成功がいい","自由気ままに生きたい","役割や責任の中で生きたい","人の役に立つと満たされる","まず自分が満たされたい","感謝されたくて動くことがある","見返りを求めずに動きたい","退屈が何より苦手","平穏な毎日が何より幸せ","刺激と安心の両方を欲張りたい","結局はラクして幸せになりたい","多少しんどくても充実していたい","自分の人生は自分で選びたい"]},"sex":{"name":"裏・性の本音 (18+)","adult":true,"cards":["性欲は強い方だと思う","性欲は淡白な方だと思う","強い欲を表に出したくない","欲はオープンに伝えたい","自分から誘いたい","誘われる方が好き","雰囲気をしっかり作りたい","雰囲気作りは面倒に感じる","本能のままに動きたい","ムードや段取りを大事にしたい","リードする方が好き","任せて身を委ねたい","主導権を握っていたい","受け身でいる方が落ち着く","してほしいことを言葉にできる","してほしいことを言い出せない","察してほしいタイプ","ちゃんと話し合いたいタイプ","回数を重ねたい","回数より一回の充実を求める","質を大事にしたい","気軽さや勢いを楽しみたい","慣れた相手だと安心する","慣れると刺激が薄れてしまう","マンネリが何より怖い","安定した関係に満足できる","新しい刺激を求めたくなる","同じ相手とじっくり深めたい","見た目に強く惹かれる","内面に惹かれてから気持ちが動く","ギャップに弱い","一貫した相手に安心する","心が伴わないと気乗りしない","心と切り離して楽しめる","恋愛感情がなくても成立すると思う","好きな相手としか考えられない","体の相性を重視する","相性は時間で作るものだと思う","一晩限りの関係も否定しない","一晩限りの関係は虚しく感じる","後腐れのない関係が気楽でいい","特別な関係でなければ満たされない","気軽な関係を望むが口には出さない","関係には責任を持ちたい","浮気は絶対に許せない","自分の気の迷いには甘くなる","独占したい気持ちが強い","相手の自由を尊重したい","嫉妬を隠せない","嫉妬はあまり湧かない","相手の過去が気になる","相手の過去は気にしない","求められると満たされる","求めるのは恥ずかしい","断られるのが怖くて誘えない","断られても引きずらない","拒否されると深く落ち込む","ノーと言うのが苦手","嫌なときははっきり断れる","雰囲気に流されてしまうことがある","気が乗らない時は無理をしない","義務感で応じてしまうことがある","相手に合わせて演じてしまう","自分のペースを大事にしたい","満足していなくてもしたフリをする","満足度は正直に伝えたい","不満を溜め込みがち","不満はその場で言いたい","上手いと思われたい","評価は気にせず楽しみたい","下手だと思われるのが怖い","自信を持って臨みたい","本当は不安の方が大きい","コンプレックスを抱えている","体型が気になって集中できない","体型は気にせず楽しめる","明るい場所だと緊張する","隠さず見せ合える方がいい","加齢とともに自信が揺らぐ","年齢を重ねた今の方が楽しめる","若い相手に惹かれる","対等でいられる相手がいい","刺激と安心の両方が欲しい","安心できる関係を最優先したい","ときめきは長くは続かないと思う","ときめきは育てられると思う","飽きは必ず来ると割り切っている","飽きないよう工夫したい","性の話はタブーだと感じる","性のことをもっと語り合いたい","知識をアップデートしていない自覚がある","新しい知識を積極的に取り入れたい","学ぶことに抵抗がある","学んで上手くなりたい","オープンな人に憧れる","保守的な自分に安心している","冒険してみたい気持ちがある","冒険より安心を選びたい","妄想は豊かだが実行はしない","思ったことは実際に試したい","理想と現実のギャップに戸惑う","ありのままの関係で満たされたい","ガッカリさせたくない一心になる","自分の心地よさも大切にしたい","何より、ちゃんと大事にされたい"]},"sexDeep":{"name":"裏・性の本音 DEEP (18+)","adult":true,"intensity":"explicit","cards":["毎日でも足りないくらい欲しい","一日に何度求めても満たされない","性欲が日常を支配している","我慢する時間が一番のストレス","いつでもスイッチが入る","スイッチが入るまで時間がかかる","完全に支配したい","完全に支配されたい","主導権を奪い合うのが好き","命令されると興奮する","命令する側に回りたい","縛られてみたい","縛ってみたい","焦らされるのがたまらない","焦らして翻弄したい","主導権を握って振り回したい","全部委ねて流されたい","役になりきって演じたい","普段と違う自分になれるのが好き","シチュエーションに強くこだわる","衣装やコスチュームに弱い","呼び方ひとつで気分が変わる","見られていると興奮する","見ている側でいたい","バレそうなスリルがたまらない","声が漏れそうな状況ほど燃える","鏡越しに見るのが好き","写真や映像に残したくなる","残すのは怖いが本当は見返したい","言葉で攻められるのが好き","言葉で攻める側が好き","我慢せず声を出したい","声は最後まで我慢したい","触れてほしい場所に強いこだわりがある","痛みと快感は紙一重だと思う","軽い痛みがあるほうが燃える","とことん優しくされたい","激しいほど満たされる","時間をかけてじっくり味わいたい","短く激しいのが好み","道具を使うことに抵抗がない","道具より生身にこだわりたい","未経験のことは何でも試したい","一度は試したいことが山ほどある","引き出しは多い方だと思う","定番を繰り返す方が安心する","妄想の方が現実よりずっと過激","普段の自分からは想像できない願望がある","誰にも言えない願望を抱えている","背徳感があるほど燃える","禁じられているほど惹かれてしまう","複数人との場面を想像したことがある","同性に興味を持ったことがある","パートナー以外を思い浮かべることがある","妄想の中だけで一線を越えている","バレなければ越えたいと思う瞬間がある","刺激のために相手を変えたくなる","ひとりの相手だけでは物足りなくなる","ひとりの相手をとことん深めたい","開かれた関係に憧れがある","一対一でこそ深まると信じている","経験は多いほど魅力だと思う","経験の数は関係ないと思う","相手の経験を細かく知りたくなる","相手の過去は想像したくない","終わってもしばらく離れたくない","終わったらすぐ一人になりたい","終わってすぐ次を求めてしまう","余韻にいつまでも浸っていたい","自分の体に自信がある","体を褒められると一気に燃える","明るい中で見られたい","暗くないと落ち着かない","相手の反応をじっくり観察したい","自分が乱れる姿を見られたくない","乱れる姿こそ見てほしい","主導権より駆け引きそのものが好き","駆け引き抜きで本能だけで繋がりたい","焦らされる前に求めてしまう","求められるまで動けない","言葉より触れ合いで伝えたい","触れ合いより言葉で高め合いたい","日常では絶対に見せない顔がある","二人きりでだけ素の自分になれる","普段おとなしいほど激しくなる","普段強気でも委ねたくなる","ルールを決めて楽しむのが好き","ルールなんて忘れて没頭したい","焦らしと我慢のせめぎ合いが好き","一気に高まって我を忘れたい","試したい願望をひそかにリストにしている","願望は心の奥にしまったままにしている","相手の弱いところを見つけるのが好き","自分の弱さを委ねられる相手がいい","緊張感のある関係ほど燃える","安心しきった関係でこそ大胆になれる","普段は淡白なのに妄想は激しい","興味は尽きないが実行は慎重","思い立ったらためらわず試す","結局、本気で求め合える相手が一番"]}};
 const DECK_META = {
@@ -507,8 +527,144 @@ const yen=n=>"¥"+n.toLocaleString("ja-JP");
 const $=id=>document.getElementById(id);
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$(id).classList.add('active');window.scrollTo(0,0);}
 
-let deckKey=null,deck=null,N=6,price=null,code="";
-let players=[],drawPile=[],field=[],turn=0,yourSeat=0,pileEmpty=false,stage="discard",tossCard=null,botTimer=null,finalTurnsLeft=null,fieldView='cards',penaltyMode=false,traps={},lastDrew=null,trapSel=null;
+// =====================================================
+// Supabase クライアント (src/client-net.js をインライン化)
+// =====================================================
+function createGameNet({ url, anonKey }) {
+  const { createClient } = window.supabase;
+  const sb = createClient(url, anonKey, { auth: { persistSession: true, autoRefreshToken: true } });
+  const store = { userId: null, sessionId: null, playerId: null, hostToken: null, code: null, tableIndex: null, seat: null, gameTableId: null, version: 0 };
+  const channels = {};
+  const LS = 'ura:net';
+  const saveLocal = () => localStorage.setItem(LS, JSON.stringify({ sessionId: store.sessionId, playerId: store.playerId, hostToken: store.hostToken, code: store.code }));
+  const loadLocal = () => { try { return JSON.parse(localStorage.getItem(LS) || '{}'); } catch { return {}; } };
+
+  async function ensureAuth() {
+    let { data: { session } } = await sb.auth.getSession();
+    if (!session) { const { data, error } = await sb.auth.signInAnonymously(); if (error) throw error; session = data.session; }
+    store.userId = session.user.id;
+    sb.realtime.setAuth(session.access_token);
+    sb.auth.onAuthStateChange((_e, s) => { if (s?.access_token) sb.realtime.setAuth(s.access_token); });
+    return store.userId;
+  }
+  async function createRoom({ deckKey, penalty = false, tableTarget = 6, name = '主催' }) {
+    await ensureAuth();
+    const { data, error } = await sb.rpc('create_session', { p_deck_key: deckKey, p_penalty: penalty, p_table_target: tableTarget, p_name: name });
+    if (error) throw error;
+    store.sessionId = data.sessionId; store.playerId = data.playerId; store.hostToken = data.hostToken; store.code = data.code;
+    saveLocal(); return data;
+  }
+  async function joinRoom({ code, name = 'ゲスト' }) {
+    await ensureAuth();
+    const { data, error } = await sb.rpc('join_session', { p_code: code, p_name: name });
+    if (error) throw error;
+    store.sessionId = data.sessionId; store.playerId = data.playerId; store.code = code;
+    saveLocal(); return data;
+  }
+  async function subscribeLobby({ onPlayers, onStatus }) {
+    const sid = store.sessionId;
+    const { data: ps } = await sb.from('players').select('id,name,is_host,user_id,table_index,seat,connected').eq('session_id', sid).order('created_at');
+    onPlayers?.(ps || []);
+    const { data: sess } = await sb.from('sessions').select('status').eq('id', sid).single();
+    onStatus?.(sess?.status);
+    channels.lobby?.unsubscribe();
+    channels.lobby = sb.channel('lobby:' + sid)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `session_id=eq.${sid}` },
+        async () => { const { data } = await sb.from('players').select('id,name,is_host,user_id,table_index,seat,connected').eq('session_id', sid).order('created_at'); onPlayers?.(data || []); })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sessions', filter: `id=eq.${sid}` },
+        (payload) => onStatus?.(payload.new.status))
+      .subscribe();
+    return channels.lobby;
+  }
+  async function startRoom({ cards, assignment }) {
+    const { data, error } = await sb.rpc('start_session', { p_session: store.sessionId, p_host_token: store.hostToken, p_cards: cards, p_assignment: assignment });
+    if (error) throw error; return data;
+  }
+  async function setTrap({ card }) {
+    const { data, error } = await sb.rpc('set_trap', { p_session: store.sessionId, p_card: card });
+    if (error) throw error; return data;
+  }
+  async function beginPlay() {
+    const { error } = await sb.rpc('begin_play', { p_session: store.sessionId, p_host_token: store.hostToken });
+    if (error) throw error;
+  }
+  async function resolveMySeat() {
+    const { data: me } = await sb.from('players').select('table_index,seat').eq('id', store.playerId).single();
+    store.tableIndex = me?.table_index; store.seat = me?.seat;
+    const { data: gt } = await sb.from('game_tables').select('id,version').eq('session_id', store.sessionId).eq('table_index', store.tableIndex).single();
+    store.gameTableId = gt?.id; store.version = gt?.version ?? 0;
+    return { tableIndex: store.tableIndex, seat: store.seat, gameTableId: store.gameTableId };
+  }
+  async function subscribeTable({ onTable, onEvent }) {
+    if (!store.gameTableId) await resolveMySeat();
+    const gtid = store.gameTableId;
+    const { data: row } = await sb.from('game_tables').select('*').eq('id', gtid).single();
+    if (row) { store.version = row.version; onTable?.(row); }
+    channels.table?.unsubscribe();
+    channels.table = sb.channel('table:' + gtid)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_tables', filter: `id=eq.${gtid}` },
+        (payload) => { const r = payload.new; store.version = r.version; onTable?.(r); if (r.last_event) onEvent?.(r.last_event); })
+      .subscribe();
+    return channels.table;
+  }
+  async function subscribeHand({ onHand }) {
+    const pid = store.playerId;
+    const { data: h } = await sb.from('player_hands').select('hand').eq('player_id', pid).maybeSingle();
+    onHand?.(h?.hand || []);
+    channels.hand?.unsubscribe();
+    channels.hand = sb.channel('hand:' + pid)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_hands', filter: `player_id=eq.${pid}` },
+        (payload) => onHand?.(payload.new?.hand || []))
+      .subscribe();
+    return channels.hand;
+  }
+  async function play(move) {
+    const call = (ver) => sb.rpc('play_move', { p_session: store.sessionId, p_table_index: store.tableIndex, p_version: ver, p_discard: move.discard, p_draw_kind: move.drawKind, p_draw_card: move.drawCard ?? null });
+    let { data, error } = await call(store.version);
+    if (error && /stale/i.test(error.message)) {
+      const { data: gt } = await sb.from('game_tables').select('version').eq('id', store.gameTableId).single();
+      store.version = gt?.version ?? store.version;
+      ({ data, error } = await call(store.version));
+    }
+    if (error) throw error;
+    if (typeof data?.version === 'number') store.version = data.version;
+    return data;
+  }
+  async function finishRoom() {
+    const { error } = await sb.rpc('finish_session', { p_session: store.sessionId, p_host_token: store.hostToken });
+    if (error) throw error;
+  }
+  async function fetchReveal() {
+    const { data } = await sb.from('players').select('id,name,seat,final_hand').eq('session_id', store.sessionId).eq('table_index', store.tableIndex).order('seat');
+    return data || [];
+  }
+  async function resync({ onTable, onHand } = {}) {
+    if (store.gameTableId) { const { data: r } = await sb.from('game_tables').select('*').eq('id', store.gameTableId).single(); if (r) { store.version = r.version; onTable?.(r); } }
+    if (store.playerId) { const { data: h } = await sb.from('player_hands').select('hand').eq('player_id', store.playerId).maybeSingle(); onHand?.(h?.hand || []); }
+  }
+  function bindReconnect(cbs) {
+    const fn = () => { if (document.visibilityState === 'visible') resync(cbs); };
+    document.addEventListener('visibilitychange', fn);
+    window.addEventListener('online', fn);
+    return () => { document.removeEventListener('visibilitychange', fn); window.removeEventListener('online', fn); };
+  }
+  function leave() { Object.values(channels).forEach(c => c?.unsubscribe()); }
+
+  return { supabase: sb, store, ensureAuth, loadLocal, createRoom, joinRoom, subscribeLobby, startRoom, setTrap, beginPlay, resolveMySeat, subscribeTable, subscribeHand, play, finishRoom, fetchReveal, resync, bindReconnect, leave };
+}
+let net = null;
+
+// =====================================================
+// アプリ状態
+// =====================================================
+let deckKey=null, deck=null, N=6, price=null;
+let penaltyMode=false;
+// ゲーム中の状態（サーバーから届く）
+let myHand=[], field=[], pileCount=0, turn=0, yourSeat=0;
+let stage='discard', tossCard=null, lastDrew=null;
+let finalTurnsLeft=null, fieldView='cards', tableStatus='playing';
+let tablePlayers=[], lobbyPlayers=[];
+let trapSel=null, joinCode=null;
 
 // ---- deck select ----
 function renderDecks(){
@@ -524,7 +680,7 @@ function applyTheme(k){ document.body.dataset.theme = (k==='sexDeep'?'deep':k===
 function chooseDeck(k){ deckKey=k; deck=DECKS[k]; applyTheme(k); if(deck.adult){show('s-age');return;} enterSetup(); }
 function passAge(){ if(deck.intensity==='explicit'){show('s-expr');} else enterSetup(); }
 function passExpr(){ enterSetup(); }
-function toDeck(){ if(botTimer)clearTimeout(botTimer); penaltyMode=false; document.body.dataset.theme='light'; show('s-deck'); }
+function toDeck(){ net?.leave(); penaltyMode=false; document.body.dataset.theme='light'; show('s-deck'); }
 
 // ---- setup ----
 function enterSetup(){
@@ -564,46 +720,71 @@ function enterPay(){
 }
 function paySuccess(){ openLobby(); }
 
-// ---- lobby (疑似的に参加者が集まる) ----
-function genCode(){const a="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let s="";for(let i=0;i<5;i++)s+=a[Math.random()*a.length|0];return s;}
-function renderQR(seed){
-  const q=$('qr'); q.innerHTML=''; let h=0; for(const c of seed)h=(h*31+c.charCodeAt(0))>>>0;
-  for(let i=0;i<121;i++){ const cell=document.createElement('i');
-    const r=Math.floor(i/11),c=i%11; const finder=(r<3&&c<3)||(r<3&&c>7)||(r>7&&c<3);
-    h=(h*1103515245+12345)>>>0; if(!(finder|| (h%2))) cell.classList.add('off'); q.appendChild(cell); }
+// ---- lobby (主催: 部屋作成→QR表示→参加待ち) ----
+async function openLobby(){
+  const yourName = $('yourName').value || '主催';
+  try {
+    const data = await net.createRoom({ deckKey, penalty: penaltyMode, tableTarget: N, name: yourName });
+    const joinUrl = location.origin + location.pathname + '?code=' + data.code;
+    $('lobbyCode').textContent = data.code;
+    $('qrImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=6&data=' + encodeURIComponent(joinUrl);
+    $('joinUrl').textContent = joinUrl;
+    $('lobbyTarget').textContent = N;
+    $('startBtn').style.display = 'block';
+    $('lobbyWait').style.display = 'none';
+    $('lobbyHostNote').textContent = '主催のあなただけが開始できます';
+    $('startBtn').onclick = goAssign;
+    show('s-lobby');
+    await net.subscribeLobby({ onPlayers: renderLobbyPlayers, onStatus: onSessionStatus });
+  } catch(e) { alert('部屋作成エラー: ' + e.message); }
 }
-// 指定人数ぶんの参加者名を用意（プール超過分は連番で補う）
-function makeNames(count){
-  const base=shuffle(BOT_NAMES); const out=[];
-  for(let i=0;i<count;i++){ const nm=base[i%base.length]; out.push(i<base.length?nm:nm+"・"+(Math.floor(i/base.length)+1)); }
-  return out;
+
+function renderLobbyPlayers(players) {
+  lobbyPlayers = players;
+  const list = $('joinList'); list.innerHTML = '';
+  players.forEach(p => {
+    const pill = document.createElement('div');
+    pill.className = 'join-pill' + (p.user_id === net.store.userId ? ' you' : '');
+    pill.textContent = p.name + (p.is_host ? '（主催）' : '');
+    list.appendChild(pill);
+  });
+  $('lobbyCount').textContent = players.length;
+  const sb = $('startBtn');
+  if (sb.style.display !== 'none') {
+    const valid = players.length >= 2;
+    sb.disabled = !valid;
+    sb.textContent = valid ? '全員そろった！ 席を割り当てる' : '参加者を待っています…';
+  }
 }
-function openLobby(){
-  code=genCode(); $('lobbyCode').textContent=code; renderQR(code);
-  $('lobbyTarget').textContent=N;
-  const youName=$('yourName').value||'あなた';
-  const names=makeNames(N-1);
-  window.__youName=youName; window.__lobbyNames=names;
-  const list=$('joinList'); list.innerHTML='';
-  const you=document.createElement('div'); you.className='join-pill you'; you.textContent=youName+'（主催）'; list.appendChild(you);
-  let joined=1; $('lobbyCount').textContent=joined;
-  const sb=$('startBtn'); sb.disabled=true; sb.textContent='参加者を待っています…'; sb.onclick=goAssign;
-  show('s-lobby');
-  (function joinNext(){
-    if(joined-1>=names.length){ sb.disabled=false; sb.textContent='全員そろった！ 席を割り当てる'; return; }
-    const p=document.createElement('div'); p.className='join-pill'; p.textContent=names[joined-1]; list.appendChild(p);
-    joined++; $('lobbyCount').textContent=joined;
-    botTimer=setTimeout(joinNext, 320+Math.random()*320);
-  })();
+
+function onSessionStatus(status) {
+  if (status === 'trapping') enterTraps();
+  else if (status === 'playing') goTable();
+  else if (status === 'done') goReveal();
+}
+
+// ---- 参加者: QRで来た場合の入室 ----
+async function doJoinRoom() {
+  const name = ($('joinName').value || '').trim() || 'ゲスト';
+  $('joinError').textContent = '';
+  try {
+    await net.joinRoom({ code: joinCode, name });
+    $('lobbyCode').textContent = joinCode;
+    $('qrImg').src = '';
+    $('joinUrl').textContent = '';
+    $('startBtn').style.display = 'none';
+    $('lobbyWait').style.display = 'block';
+    $('lobbyHostNote').textContent = '';
+    show('s-lobby');
+    await net.subscribeLobby({ onPlayers: renderLobbyPlayers, onStatus: onSessionStatus });
+  } catch(e) { $('joinError').textContent = 'エラー: ' + e.message; }
 }
 
 // ---- 席割り（主催が手動で割り振り）----
 let aParts=[], aTables=[], aUnassigned=[], aSel=null;
 function nameOf(id){ return aParts.find(p=>p.id===id); }
 function goAssign(){
-  if(botTimer)clearTimeout(botTimer);
-  aParts=[{id:0,name:window.__youName,isYou:true}];
-  window.__lobbyNames.forEach((nm,i)=>aParts.push({id:i+1,name:nm,isYou:false}));
+  aParts = lobbyPlayers.map(p => ({ id: p.id, name: p.name, isYou: p.user_id === net.store.userId }));
   autoAssign();
   show('s-assign'); renderAssign();
 }
@@ -650,29 +831,13 @@ function tableCard(title, ids, key){
     moveTo(aSel,key); };
   return card;
 }
-function startFromAssign(){
-  const my=aTables.find(t=>t.includes(0)); // id0=あなた
-  const members=my.map(id=>nameOf(id));
-  window.__myTable={ size:members.length, mates:members.filter(p=>!p.isYou).map(p=>p.name) };
-  startGame();
+async function startFromAssign(){
+  try {
+    await net.startRoom({ cards: deck.cards, assignment: aTables });
+    // onSessionStatus が 'trapping' または 'playing' を受けて遷移
+  } catch(e) { alert('開始エラー: ' + e.message); }
 }
 function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}return a;}
-
-// ---- start (あなたの卓を配って開始) ----
-function startGame(){
-  const {size,mates}=window.__myTable;
-  const cards=shuffle(deck.cards);
-  players=[];
-  const youName=$('yourName').value||'あなた';
-  const seats=shuffle([youName,...mates]); // 着席順をシャッフル
-  seats.forEach((nm,seat)=>players.push({name:nm,isYou:nm===youName,hand:cards.splice(0,5),seat}));
-  yourSeat=players.findIndex(p=>p.isYou);
-  drawPile=cards;            // 残り全部（デモはこのまま回せるが長いので主催終了も使える）
-  field=[]; turn=0; pileEmpty=false; stage="discard"; tossCard=null; finalTurnsLeft=null; fieldView='cards';
-  $('tableLabel').textContent=`あなたの卓（${size}人）`;
-  traps={};
-  if(penaltyMode){ enterTraps(); } else { show('s-table'); renderTable(); }
-}
 
 // ---- traps (penalty mode) ----
 function enterTraps(){
@@ -684,55 +849,97 @@ function enterTraps(){
     list.appendChild(it);
   });
   $('trapBtn').disabled=true;
+  $('trapSetMsg').textContent='';
+  $('trapHostBtn').style.display = net.store.hostToken ? 'block' : 'none';
   show('s-traps');
 }
-function confirmTraps(){
+async function confirmTraps(){
   if(!trapSel) return;
-  traps={}; traps[trapSel]=players[yourSeat].name;
-  // ボットの罠（重複しないようランダムに1枚ずつ）
-  const used=new Set([trapSel]);
-  players.forEach(p=>{ if(p.isYou) return; let c,g=0; do{ c=deck.cards[(Math.random()*deck.cards.length)|0]; }while(used.has(c)&&g++<60); used.add(c); traps[c]=p.name; });
-  show('s-table'); renderTable();
+  $('trapBtn').disabled=true;
+  try {
+    const res = await net.setTrap({ card: trapSel });
+    $('trapSetMsg').textContent = res.allSet ? '全員設定完了！ゲームを開始します…' : '設定しました。他の参加者を待っています…';
+    // allSet=true なら onSessionStatus('playing') が届いて遷移する
+  } catch(e) { $('trapBtn').disabled=false; alert('罠設定エラー: ' + e.message); }
+}
+async function hostBeginPlay(){
+  try { await net.beginPlay(); } catch(e) { alert('開始エラー: ' + e.message); }
+}
+
+// ---- テーブルへ遷移 ----
+async function goTable(){
+  try {
+    await net.resolveMySeat();
+    yourSeat = net.store.seat;
+    field=[]; pileCount=0; turn=0; stage='discard'; tossCard=null; finalTurnsLeft=null; fieldView='cards';
+
+    const { data: members } = await net.supabase.from('players')
+      .select('id,name,seat,user_id').eq('session_id', net.store.sessionId).eq('table_index', net.store.tableIndex).order('seat');
+    tablePlayers = members || [];
+
+    const myPlayer = tablePlayers.find(p => p.seat === yourSeat);
+    $('tableLabel').textContent = `あなたの卓（${tablePlayers.length}人）${myPlayer ? ' — ' + myPlayer.name : ''}`;
+    $('hostBar').style.display = net.store.hostToken ? 'block' : 'none';
+
+    await net.subscribeHand({
+      onHand: (hand) => { myHand = hand; if ($('s-table').classList.contains('active')) renderTable(); }
+    });
+    await net.subscribeTable({
+      onTable: (t) => {
+        field = t.field || []; pileCount = t.pile_count; turn = t.turn_seat;
+        finalTurnsLeft = t.final_turns_left; tableStatus = t.status;
+        if ($('s-table').classList.contains('active')) renderTable();
+        if (t.status === 'done') goReveal();
+      },
+      onEvent: (e) => {
+        if (e.type === 'penalty') showPenaltyOverlay(e.drawer, e.setter, e.card);
+      }
+    });
+    net.bindReconnect({
+      onTable: (t) => { field=t.field||[]; pileCount=t.pile_count; turn=t.turn_seat; finalTurnsLeft=t.final_turns_left; tableStatus=t.status; renderTable(); if(t.status==='done') goReveal(); },
+      onHand: (hand) => { myHand=hand; renderTable(); }
+    });
+    show('s-table'); renderTable();
+  } catch(e) { alert('テーブル参加エラー: ' + e.message); }
 }
 
 // ---- table render ----
 function renderTable(){
-  $('pileN').textContent=drawPile.length; $('fieldN').textContent=field.length;
+  $('pileN').textContent=pileCount; $('fieldN').textContent=field.length;
   const body=$('tableBody'); body.innerHTML='';
-  const me=players[yourSeat], cur=players[turn];
+  const curPlayer = tablePlayers.find(p=>p.seat===turn) || {name:'?'};
+  const isFinalTurn = pileCount===0;
 
   if(turn===yourSeat){
     $('turnState').textContent='あなたの番です'; $('turnState').className='turn-state you';
     if(stage==="discard"){
       body.appendChild(elx('div','play-prompt','最も「当てはまらない」1枚を捨てる'));
       const fan=elx('div','hand-fan');
-      me.hand.forEach(c=>{ const card=pcard(c); card.onclick=()=>pickDiscard(c); fan.appendChild(card); });
+      myHand.forEach(c=>{ const card=pcard(c); card.onclick=()=>pickDiscard(c); fan.appendChild(card); });
       body.appendChild(fan);
     } else {
-      const finalR = drawPile.length===0;
       const pr=elx('div','play-prompt');
-      pr.innerHTML = finalR ? '山札は尽きました。<b>場から最後の1枚</b>を拾って終了（自分の捨て札もOK）' : '捨てる札：<b>'+tossCard+'</b> ／ 1枚を引く';
+      pr.innerHTML = isFinalTurn ? '山札は尽きました。<b>場から最後の1枚</b>を拾って終了（自分の捨て札もOK）' : '捨てる札：<b>'+tossCard+'</b> ／ 1枚を引く';
       body.appendChild(pr);
       const area=elx('div','draw-area');
-      if(!finalR){
+      if(!isFinalTurn){
         const stack=elx('div','pile-stack');
         stack.innerHTML='<div class="back b1 card-back"></div><div class="back b2 card-back"></div><div class="back top card-back"><span class="em">裏</span></div>';
         stack.onclick=()=>chooseDraw("pile"); area.appendChild(stack);
-        area.appendChild(elx('div','pile-count','山札 '+drawPile.length+' 枚'));
+        area.appendChild(elx('div','pile-count','山札 '+pileCount+' 枚'));
         area.appendChild(elx('div','draw-sep','― または 場から拾う ―'));
       }
       area.appendChild(renderField(true));
       body.appendChild(area);
     }
   } else {
-    $('turnState').textContent=cur.name+' さんが考え中…'; $('turnState').className='turn-state wait';
+    $('turnState').textContent=curPlayer.name+' さんが考え中…'; $('turnState').className='turn-state wait';
     body.appendChild(elx('div','zone-label lbl-field','場（誰でも拾える捨て札）'));
     body.appendChild(renderField(false));
     body.appendChild(elx('div','zone-label lbl-hand','あなたの手札（自分の番で操作できます）'));
     const fan=elx('div','hand-fan locked');
-    me.hand.forEach(c=>fan.appendChild(pcard(c)));
+    myHand.forEach(c=>fan.appendChild(pcard(c)));
     body.appendChild(fan);
-    scheduleBot();
   }
 }
 function elx(tag,cls,txt){ const e=document.createElement(tag); if(cls)e.className=cls; if(txt!=null)e.textContent=txt; return e; }
@@ -765,39 +972,34 @@ function setFieldView(v){ fieldView=v; renderTable(); }
 function pickDiscard(c){ tossCard=c; showAnnounce("discard", c); }
 function confirmDiscard(){
   hideAnnounce();
-  if(drawPile.length===0){ // 最後のターン: 捨て札を先に場へ（自分のも拾えるように）
-    const me=players[yourSeat]; const di=me.hand.indexOf(tossCard); me.hand.splice(di,1);
-    field.push(tossCard);
+  if(pileCount===0){ // 最終ターン: 捨て札を先に場へ（自分のも拾えるように・表示用）
+    const idx=myHand.indexOf(tossCard); if(idx>=0) myHand=[...myHand.slice(0,idx),...myHand.slice(idx+1)];
+    field=[...field, tossCard];
   }
   stage="draw"; renderTable();
 }
 function cancelDiscard(){ tossCard=null; hideAnnounce(); renderTable(); }
-function chooseDraw(draw){
-  const me=players[yourSeat];
-  if(drawPile.length===0){ // 最後のターン: 場から1枚だけ拾って終了（自分の捨て札も可）
-    const want=draw.fromField; const fi=field.indexOf(want); const drew=field.splice(fi,1)[0];
-    me.hand.push(drew); tossCard=null; stage="discard"; lastDrew=drew;
-    showAnnounce("drew", drew, "場から取った最後の1枚");
-    return;
+async function chooseDraw(draw){
+  const isFinalTurn = pileCount===0;
+  const drawKind = (draw==='pile') ? 'pile' : 'field';
+  const drawCard = (draw==='pile') ? null : draw.fromField;
+  try {
+    const res = await net.play({ discard: tossCard, drawKind, drawCard });
+    lastDrew = res.drew; tossCard=null; stage='discard';
+    if(res.penalty){ showPenaltyOverlay(res.penalty.drawer, res.penalty.setter, res.penalty.card); }
+    else { showAnnounce('drew', res.drew, isFinalTurn ? '場から取った最後の1枚' : (drawKind==='pile' ? '山札から引いた札' : '場から取った札')); }
+  } catch(e) {
+    alert('エラー: ' + e.message);
+    tossCard=null; stage='discard'; renderTable();
   }
-  let drew;
-  if(draw==="pile"){ drew=drawPile.shift(); }
-  else { const fi=field.indexOf(draw.fromField); drew=field.splice(fi,1)[0]; }
-  const di=me.hand.indexOf(tossCard); me.hand.splice(di,1);
-  me.hand.push(drew); field.push(tossCard); tossCard=null; stage="discard"; lastDrew=drew;
-  showAnnounce("drew", drew, draw==="pile" ? "山札から引いた札" : "場から取った札");
 }
-function confirmDrew(){
-  hideAnnounce();
-  if(penaltyMode && traps[lastDrew]){ firePenalty(players[yourSeat].name, lastDrew); }
-  else advance();
-}
-function firePenalty(drawerName, card){
+function confirmDrew(){ hideAnnounce(); renderTable(); }
+function showPenaltyOverlay(drawerName, setterName, card){
   $('penWho').textContent = drawerName+' さん、飲んで！';
-  $('penSub').textContent = (traps[card]||'') + ' さんが仕掛けた「'+card+'」を引きました';
+  $('penSub').textContent = (setterName||'') + ' さんが仕掛けた「'+card+'」を引きました';
   $('penalty').classList.add('show');
 }
-function confirmPenalty(){ $('penalty').classList.remove('show'); advance(); }
+function confirmPenalty(){ $('penalty').classList.remove('show'); renderTable(); }
 
 function showAnnounce(type, card, labelText){
   const lbl=$('annLabel'), flip=$('annFlip'), front=$('annCard'), act=$('annActions');
@@ -818,47 +1020,81 @@ function showAnnounce(type, card, labelText){
 function hideAnnounce(){ $('announce').classList.remove('show'); }
 function mkBtn(text,cls,fn){ const b=document.createElement('button'); b.className='btn '+cls; b.textContent=text; b.onclick=fn; return b; }
 
-// ---- bot move ----
-function scheduleBot(){ if(botTimer)clearTimeout(botTimer); botTimer=setTimeout(botPlay, 1100); }
-function botPlay(){
-  const b=players[turn];
-  const di=Math.random()*b.hand.length|0; const toss=b.hand.splice(di,1)[0];
-  let drew;
-  if(drawPile.length===0){ // 最後のターン: 場へ出してから場から1枚（自分のも可）
-    field.push(toss);
-    const fi=Math.random()*field.length|0; drew=field.splice(fi,1)[0]; b.hand.push(drew);
-  } else {
-    if(field.length>0 && Math.random()<0.25){ const fi=Math.random()*field.length|0; drew=field.splice(fi,1)[0]; }
-    else { drew=drawPile.shift(); }
-    b.hand.push(drew); field.push(toss);
+// ---- 主催終了 ----
+async function hostFinish(){
+  if(!confirm('本当にゲームを終了しますか？')) return;
+  try { await net.finishRoom(); } catch(e) { alert('終了エラー: ' + e.message); }
+}
+
+// ---- 結果発表 ----
+async function goReveal(){
+  try {
+    const rows = await net.fetchReveal();
+    const box=$('reveal'); box.innerHTML='';
+    rows.forEach(p=>{
+      const hand = p.final_hand || [];
+      const row=document.createElement('div'); row.className='player-row'+(p.seat===yourSeat?' you':'');
+      const cards=hand.map((c,i)=>`<div class="vcard${i===4?' full':''}">${c}</div>`).join('');
+      row.innerHTML=`<div class="nm">${p.name}${p.seat===yourSeat?'<span class="me">あなた</span>':''}</div><div class="player-cards">${cards}</div>`;
+      box.appendChild(row);
+    });
+    show('s-reveal');
+  } catch(e) { alert('結果取得エラー: ' + e.message); }
+}
+
+// ---- セッション復帰 ----
+async function tryReconnect(saved) {
+  net.store.sessionId = saved.sessionId; net.store.playerId = saved.playerId;
+  net.store.hostToken = saved.hostToken; net.store.code = saved.code;
+  const { data: sess, error } = await net.supabase.from('sessions').select('status,deck_key,penalty_mode').eq('id', saved.sessionId).single();
+  if (error || !sess) throw new Error('session not found');
+  deckKey=sess.deck_key; deck=DECKS[deckKey]; penaltyMode=sess.penalty_mode; applyTheme(deckKey);
+  if (sess.status==='lobby') {
+    $('lobbyCode').textContent = saved.code||'';
+    if (saved.hostToken) {
+      const joinUrl = location.origin+location.pathname+'?code='+saved.code;
+      $('qrImg').src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=6&data='+encodeURIComponent(joinUrl);
+      $('joinUrl').textContent=joinUrl; $('startBtn').style.display='block'; $('startBtn').onclick=goAssign;
+      $('lobbyWait').style.display='none'; $('lobbyHostNote').textContent='主催のあなただけが開始できます';
+    } else { $('startBtn').style.display='none'; $('lobbyWait').style.display='block'; }
+    show('s-lobby');
+    await net.subscribeLobby({ onPlayers: renderLobbyPlayers, onStatus: onSessionStatus });
+  } else if (sess.status==='trapping') {
+    await net.subscribeLobby({ onPlayers:()=>{}, onStatus: onSessionStatus });
+    enterTraps();
+  } else if (sess.status==='playing') {
+    await net.subscribeLobby({ onPlayers:()=>{}, onStatus: onSessionStatus });
+    await goTable();
+  } else if (sess.status==='done') {
+    await goReveal();
   }
-  if(penaltyMode && traps[drew]){ firePenalty(b.name, drew); }
-  else advance();
 }
 
-// ---- turn advance & end ----
-function advance(){
-  if(drawPile.length===0 && finalTurnsLeft===null){ finalTurnsLeft=players.length; } // 全員が最後の1ターンずつ
-  else if(finalTurnsLeft!==null){ finalTurnsLeft--; }
-  if(finalTurnsLeft!==null && finalTurnsLeft<=0){ reveal(); return; }
-  turn=(turn+1)%players.length; renderTable();
-}
-function hostFinish(){ if(botTimer)clearTimeout(botTimer); reveal(); }
+// =====================================================
+// 初期化
+// =====================================================
+document.addEventListener('DOMContentLoaded', async () => {
+  net = createGameNet({ url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY });
+  renderDecks();
 
-// ---- reveal ----
-function reveal(){
-  if(botTimer)clearTimeout(botTimer);
-  const box=$('reveal'); box.innerHTML='';
-  players.slice().sort((a,b)=>a.seat-b.seat).forEach(p=>{
-    const row=document.createElement('div'); row.className='player-row'+(p.isYou?' you':'');
-    const cards=p.hand.map((c,i)=>`<div class="vcard${i===4?' full':''}">${c}</div>`).join('');
-    row.innerHTML=`<div class="nm">${p.name}${p.isYou?'<span class="me">あなた</span>':''}</div><div class="player-cards">${cards}</div>`;
-    box.appendChild(row);
-  });
-  show('s-reveal');
-}
+  const params = new URLSearchParams(location.search);
+  joinCode = params.get('code');
 
-renderDecks();
+  try { await net.ensureAuth(); } catch(e) { alert('認証エラー: ' + e.message); return; }
+
+  if (joinCode) {
+    joinCode = joinCode.toUpperCase();
+    $('joinCodeDisp').textContent = joinCode;
+    show('s-join');
+  } else {
+    const saved = net.loadLocal();
+    if (saved.sessionId) {
+      try { await tryReconnect(saved); } catch { localStorage.removeItem('ura:net'); show('s-deck'); }
+    } else {
+      show('s-deck');
+    }
+  }
+});
 </script>
 </body>
 </html>
