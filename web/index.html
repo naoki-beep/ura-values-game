@@ -290,6 +290,19 @@
   .trap-item{padding:12px 15px;font-family:"Shippori Mincho",serif;font-size:14px;color:var(--text);border-bottom:1px solid var(--line);cursor:pointer}
   .trap-item:last-child{border-bottom:none}
   .trap-item.sel{background:var(--accent);color:var(--on-accent)}
+  .trap-item .tk{float:right;opacity:.85;font-size:12px}
+  /* penalty count stepper (setup) */
+  .pen-count-row{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border:1px solid var(--accent);border-radius:12px;padding:11px 15px;margin-top:10px;box-shadow:0 3px 10px var(--shadow)}
+  .pen-count-row .pcl{flex:1}
+  .pen-count-row .pct{font-family:"Shippori Mincho",serif;font-weight:800;font-size:15px;color:var(--text)}
+  .pen-count-row .pcd{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .mini-step{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+  .mini-step button{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--surface2);color:var(--text);font-size:20px;cursor:pointer}
+  .mini-step .mn{font-family:"Shippori Mincho",serif;font-weight:800;font-size:26px;min-width:32px;text-align:center;color:var(--text)}
+  /* 場の札: 捨てた人の表示 */
+  .field-card{display:flex;flex-direction:column;align-items:center;gap:3px}
+  .field-by{font-size:10px;color:var(--field-text);max-width:84px;text-align:center;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.85}
+  .field-list .fl-by{float:right;font-size:11px;color:var(--field-text);opacity:.8;font-family:"Noto Sans JP",sans-serif}
   .penalty{position:fixed;inset:0;z-index:60;background:color-mix(in srgb,var(--accent) 24%,var(--bg2));backdrop-filter:blur(3px);display:none;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center}
   .penalty.show{display:flex;animation:fade .2s ease}
   .pen-inner{display:flex;flex-direction:column;align-items:center;max-width:420px;width:100%}
@@ -311,6 +324,7 @@
       <h1 class="title">裏<span class="ura">価値観</span>ゲーム</h1>
       <div class="sub">主催として部屋を作ります。まずデッキを選択</div>
       <button class="btn btn-ghost howto-btn" onclick="show('s-howto')">？ 遊び方を見る</button>
+      <button class="btn btn-ghost howto-btn" onclick="openJoinByCode()" style="margin-left:8px">コードで参加・復帰</button>
     </div>
     <div class="deck-grid" id="deckGrid"></div>
   </section>
@@ -401,6 +415,14 @@
       <div class="opt-l"><div class="opt-t">🍺 罰ゲームモード</div><div class="opt-d">引いた札がトラップなら飲む。ゲーム性アップ（+300円）</div></div>
       <div class="opt-sw"></div>
     </div>
+    <div class="pen-count-row" id="penCountRow" style="display:none">
+      <div class="pcl"><div class="pct">罰カードの枚数</div><div class="pcd">1人がしかける枚数（最大）</div></div>
+      <div class="mini-step">
+        <button type="button" onclick="changePenCount(-1)">−</button>
+        <div class="mn" id="penCountNum">1</div>
+        <button type="button" onclick="changePenCount(1)">＋</button>
+      </div>
+    </div>
     <div class="price-line"><div class="pl-amt free" id="plAmt">無料</div><div class="pl-reason" id="plReason">8人まで無料</div></div>
     <div id="splitNote" style="text-align:center;font-size:12px;color:var(--muted);margin-top:10px"></div>
     <div class="foot"><div class="btn-row">
@@ -457,15 +479,17 @@
     </div>
   </section>
 
-  <!-- JOIN (参加者がQRコードで来た場合) -->
+  <!-- JOIN (QRコード or コード手入力で参加・復帰) -->
   <section class="screen gate" id="s-join">
     <div class="ic">入室</div>
     <div class="g-ttl">部屋に参加する</div>
-    <div class="g-sub">コード <b id="joinCodeDisp" style="color:var(--hi);font-family:'Shippori Mincho',serif;letter-spacing:.1em"></b> の部屋です。<br>お名前を入力してください。</div>
+    <div class="g-sub" id="joinSub">参加コードとお名前を入力してください。</div>
     <div class="actions">
-      <input class="field-input" id="joinName" placeholder="あなたの表示名（例：Ken）" maxlength="12" style="margin-bottom:0">
+      <input class="field-input" id="joinCodeInput" placeholder="参加コード（例：Y2AK3）" maxlength="5" autocapitalize="characters" autocomplete="off" style="text-transform:uppercase;letter-spacing:.18em;text-align:center;font-family:'Shippori Mincho',serif;font-weight:800;font-size:20px">
+      <input class="field-input" id="joinName" placeholder="あなたの表示名（例：Ken）" maxlength="12" style="margin-top:10px;margin-bottom:0">
       <button class="btn btn-primary" onclick="doJoinRoom()">参加する</button>
       <div id="joinError" style="color:var(--accent);font-size:13px;text-align:center;min-height:18px"></div>
+      <button class="btn btn-ghost" onclick="toDeck()" style="font-size:13px">← もどる</button>
     </div>
   </section>
 
@@ -587,9 +611,9 @@ function createGameNet({ url, anonKey }) {
     sb.auth.onAuthStateChange((_e, s) => { if (s?.access_token) sb.realtime.setAuth(s.access_token); });
     return store.userId;
   }
-  async function createRoom({ deckKey, penalty = false, tableTarget = 6, name = '主催' }) {
+  async function createRoom({ deckKey, penalty = false, tableTarget = 6, name = '主催', penaltyCount = 1 }) {
     await ensureAuth();
-    const { data, error } = await sb.rpc('create_session', { p_deck_key: deckKey, p_penalty: penalty, p_table_target: tableTarget, p_name: name });
+    const { data, error } = await sb.rpc('create_session', { p_deck_key: deckKey, p_penalty: penalty, p_table_target: tableTarget, p_name: name, p_penalty_count: penaltyCount });
     if (error) throw error;
     store.sessionId = data.sessionId; store.playerId = data.playerId; store.hostToken = data.hostToken; store.code = data.code;
     saveLocal(); return data;
@@ -598,8 +622,8 @@ function createGameNet({ url, anonKey }) {
     await ensureAuth();
     const { data, error } = await sb.rpc('join_session', { p_code: code, p_name: name });
     if (error) throw error;
-    store.sessionId = data.sessionId; store.playerId = data.playerId; store.code = code;
-    saveLocal(); return data;
+    store.sessionId = data.sessionId; store.playerId = data.playerId; store.code = (code || '').toUpperCase();
+    saveLocal(); return data; // { sessionId, playerId, status, reconnected }
   }
   async function subscribeLobby({ onPlayers, onStatus }) {
     const sid = store.sessionId;
@@ -620,8 +644,8 @@ function createGameNet({ url, anonKey }) {
     const { data, error } = await sb.rpc('start_session', { p_session: store.sessionId, p_host_token: store.hostToken, p_cards: cards, p_assignment: assignment });
     if (error) throw error; return data;
   }
-  async function setTrap({ card }) {
-    const { data, error } = await sb.rpc('set_trap', { p_session: store.sessionId, p_card: card });
+  async function setTrap({ cards }) {
+    const { data, error } = await sb.rpc('set_trap', { p_session: store.sessionId, p_cards: cards });
     if (error) throw error; return data;
   }
   async function beginPlay() {
@@ -698,13 +722,13 @@ let net = null;
 // アプリ状態
 // =====================================================
 let deckKey=null, deck=null, N=6, price=null;
-let penaltyMode=false;
+let penaltyMode=false, penaltyCount=1;
 // ゲーム中の状態（サーバーから届く）
 let myHand=[], field=[], pileCount=0, turn=0, yourSeat=0;
 let stage='discard', tossCard=null, lastDrew=null;
 let finalTurnsLeft=null, fieldView='cards', tableStatus='playing';
 let tablePlayers=[], lobbyPlayers=[];
-let trapSel=null, joinCode=null;
+let trapSel=new Set(), joinCode=null;
 
 // ---- deck select ----
 function renderDecks(){
@@ -720,7 +744,7 @@ function applyTheme(k){ document.body.dataset.theme = (k==='sexDeep'?'deep':k===
 function chooseDeck(k){ deckKey=k; deck=DECKS[k]; applyTheme(k); gtag('event','deck_selected',{deck_key:k}); if(deck.adult){show('s-age');return;} enterSetup(); }
 function passAge(){ if(deck.intensity==='explicit'){show('s-expr');} else enterSetup(); }
 function passExpr(){ enterSetup(); }
-function toDeck(){ net?.leave(); penaltyMode=false; document.body.dataset.theme='light'; show('s-deck'); }
+function toDeck(){ net?.leave(); penaltyMode=false; penaltyCount=1; document.body.dataset.theme='light'; show('s-deck'); }
 
 // ---- setup ----
 function enterSetup(){
@@ -729,6 +753,7 @@ function enterSetup(){
   $('penToggle').style.display = deck.adult ? 'flex' : 'none';
   renderPenToggle(); updatePrice(); show('s-setup');
 }
+function changePenCount(d){ penaltyCount=Math.max(1,Math.min(5,penaltyCount+d)); $('penCountNum').textContent=penaltyCount; }
 function changeN(d){ N=Math.max(2,Math.min(40,N+d)); $('nNum').textContent=N; updatePrice(); }
 function currentPrice(){
   const base=getRoomPrice(deckKey,N);
@@ -738,7 +763,9 @@ function currentPrice(){
   return {paid: total>0, yen: total, reason, base, addon};
 }
 function togglePenalty(){ penaltyMode=!penaltyMode; renderPenToggle(); updatePrice(); }
-function renderPenToggle(){ const r=$('penToggle'); if(r) r.classList.toggle('on', penaltyMode); }
+function renderPenToggle(){ const r=$('penToggle'); if(r) r.classList.toggle('on', penaltyMode);
+  const cr=$('penCountRow'); if(cr) cr.style.display = (penaltyMode && deck && deck.adult) ? 'flex' : 'none';
+  $('penCountNum').textContent=penaltyCount; }
 function updatePrice(){
   price=currentPrice();
   const a=$('plAmt');
@@ -781,7 +808,7 @@ async function openLobby(){
   gtag('event','room_created',{deck_key:deckKey,players:N,penalty:penaltyMode});
   const yourName = $('yourName').value || '主催';
   try {
-    const data = await net.createRoom({ deckKey, penalty: penaltyMode, tableTarget: N, name: yourName });
+    const data = await net.createRoom({ deckKey, penalty: penaltyMode, tableTarget: N, name: yourName, penaltyCount });
     const joinUrl = location.origin + location.pathname + '?code=' + data.code;
     $('lobbyCode').textContent = data.code;
     $('qrImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=6&data=' + encodeURIComponent(joinUrl);
@@ -821,23 +848,42 @@ function onSessionStatus(status) {
   else if (status === 'done') goReveal();
 }
 
-// ---- 参加者: QRで来た場合の入室 ----
+// ---- 参加者: 入室画面を開く（QR or 手入力）----
+function showJoin(code){
+  joinCode = (code || '').toUpperCase();
+  const ci = $('joinCodeInput');
+  ci.value = joinCode;
+  ci.style.display = joinCode ? 'none' : 'block';   // QRで来たらコード欄は隠す
+  $('joinSub').innerHTML = joinCode
+    ? 'コード <b style="color:var(--hi);font-family:\'Shippori Mincho\',serif;letter-spacing:.1em">'+joinCode+'</b> の部屋です。お名前を入力してください。'
+    : '参加コードとお名前を入力してください。<br>（リロードで戻れなかったときも、ここから復帰できます）';
+  $('joinError').textContent='';
+  show('s-join');
+}
+function openJoinByCode(){ showJoin(''); }
+
+// ---- 参加者: 入室／復帰の実行 ----
 async function doJoinRoom() {
   gtag('event','room_joined');
+  const code = (joinCode || $('joinCodeInput').value || '').trim().toUpperCase();
+  if (code.length < 4) { $('joinError').textContent = '参加コードを入力してください'; return; }
   const name = ($('joinName').value || '').trim() || 'ゲスト';
   $('joinError').textContent = '';
   try {
-    await net.joinRoom({ code: joinCode, name });
-    // デッキ情報を取得してテーマを適用
-    const { data: sess } = await net.supabase.from('sessions').select('deck_key,penalty_mode').eq('id', net.store.sessionId).single();
-    if (sess) { deckKey=sess.deck_key; deck=DECKS[deckKey]; penaltyMode=sess.penalty_mode; applyTheme(deckKey); }
-    $('lobbyCode').textContent = joinCode;
-    $('qrImg').src = '';
-    $('joinUrl').textContent = '';
+    const res = await net.joinRoom({ code, name });
+    joinCode = code;
+    // デッキ・罰ゲーム設定を取得してテーマと枚数を反映
+    const { data: sess } = await net.supabase.from('sessions').select('deck_key,penalty_mode,penalty_count').eq('id', net.store.sessionId).single();
+    if (sess) { deckKey=sess.deck_key; deck=DECKS[deckKey]; penaltyMode=sess.penalty_mode; penaltyCount=sess.penalty_count||1; applyTheme(deckKey); }
+    // 参加者用のロビー表示
+    $('lobbyCode').textContent = code;
+    $('qrImg').src = ''; $('joinUrl').textContent = '';
     $('startBtn').style.display = 'none';
     $('lobbyWait').style.display = 'block';
     $('lobbyHostNote').textContent = '';
     show('s-lobby');
+    // subscribeLobby は現在の status を即 onStatus に渡すので、
+    // 進行中(trapping/playing/done)の部屋へ復帰した場合も適切な画面へ自動遷移する。
     await net.subscribeLobby({ onPlayers: renderLobbyPlayers, onStatus: onSessionStatus });
   } catch(e) { $('joinError').textContent = 'エラー: ' + e.message; }
 }
@@ -913,23 +959,48 @@ function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.rando
 
 // ---- traps (penalty mode) ----
 function enterTraps(){
-  trapSel=null;
+  trapSel=new Set();
+  const sub=document.querySelector('#s-traps .setup-deck');
+  if(sub) sub.textContent = penaltyCount>1
+    ? `このカードを「引いた人」が飲みます（最大${penaltyCount}枚まで選べます）。他の人にも内緒で。`
+    : 'このカードを「引いた人」が飲みます（最初から持っている分は対象外）。他の人にも内緒で。';
   const list=$('trapList'); list.innerHTML='';
   deck.cards.forEach(c=>{
     const it=elx('div','trap-item',c);
-    it.onclick=()=>{ trapSel=c; list.querySelectorAll('.trap-item').forEach(x=>x.classList.remove('sel')); it.classList.add('sel'); $('trapBtn').disabled=false; };
+    it.onclick=()=>toggleTrap(c, it);
     list.appendChild(it);
   });
-  $('trapBtn').disabled=true;
+  updateTrapBtn();
   $('trapSetMsg').textContent='';
   $('trapHostBtn').style.display = net.store.hostToken ? 'block' : 'none';
   show('s-traps');
 }
+function toggleTrap(c, el){
+  if(trapSel.has(c)){ trapSel.delete(c); el.classList.remove('sel'); }
+  else {
+    if(trapSel.size >= penaltyCount){
+      if(penaltyCount===1){
+        trapSel.clear();
+        $('trapList').querySelectorAll('.trap-item').forEach(x=>x.classList.remove('sel'));
+      } else {
+        $('trapSetMsg').textContent = `最大${penaltyCount}枚までです`;
+        return;
+      }
+    }
+    trapSel.add(c); el.classList.add('sel'); $('trapSetMsg').textContent='';
+  }
+  updateTrapBtn();
+}
+function updateTrapBtn(){
+  const n=trapSel.size;
+  $('trapBtn').disabled = n<1;
+  $('trapBtn').textContent = penaltyCount>1 ? `この${n}枚に決定（最大${penaltyCount}）` : 'この札に決定';
+}
 async function confirmTraps(){
-  if(!trapSel) return;
+  if(trapSel.size<1) return;
   $('trapBtn').disabled=true;
   try {
-    const res = await net.setTrap({ card: trapSel });
+    const res = await net.setTrap({ cards: [...trapSel] });
     $('trapSetMsg').textContent = res.allSet ? '全員設定完了！ゲームを開始します…' : '設定しました。他の参加者を待っています…';
     // allSet=true なら onSessionStatus('playing') が届いて遷移する
   } catch(e) { $('trapBtn').disabled=false; alert('罠設定エラー: ' + e.message); }
@@ -1029,15 +1100,30 @@ function renderField(tappable){
   if(field.length===0){ wrap.appendChild(elx('div','empty-note','まだ場に札がありません')); return wrap; }
   if(fieldView==='cards'){
     const f=elx('div','field-fan'+(tappable?'':' static'));
-    field.forEach(c=>{ const card=pcard(c); card.classList.add('field'); if(tappable) card.onclick=()=>chooseDraw({fromField:c}); f.appendChild(card); });
+    field.forEach(el=>{ const txt=fc(el), by=fby(el);
+      const cw=elx('div','field-card');
+      const card=pcard(txt); card.classList.add('field');
+      if(tappable) card.onclick=()=>chooseDraw({fromField:txt});
+      cw.appendChild(card);
+      if(by) cw.appendChild(elx('div','field-by','🗣 '+by));
+      f.appendChild(cw);
+    });
     wrap.appendChild(f);
   } else {
     const list=elx('div','field-list'+(tappable?'':' static'));
-    field.forEach(c=>{ const it=elx('div','fl-item',c); if(tappable) it.onclick=()=>chooseDraw({fromField:c}); list.appendChild(it); });
+    field.forEach(el=>{ const txt=fc(el), by=fby(el);
+      const it=elx('div','fl-item'); it.textContent=txt;
+      if(by) it.appendChild(elx('span','fl-by',by));
+      if(tappable) it.onclick=()=>chooseDraw({fromField:txt});
+      list.appendChild(it);
+    });
     wrap.appendChild(list);
   }
   return wrap;
 }
+// 場の札は {c:札, by:捨てた人} の形。旧形式(文字列)にも一応耐える。
+function fc(el){ return (el && typeof el==='object') ? el.c : el; }
+function fby(el){ return (el && typeof el==='object') ? (el.by||'') : ''; }
 function setFieldView(v){ fieldView=v; renderTable(); }
 
 // ---- your move（札を全面に出して読み上げてから確定）----
@@ -1046,7 +1132,8 @@ function confirmDiscard(){
   hideAnnounce();
   if(pileCount===0){ // 最終ターン: 捨て札を先に場へ（自分のも拾えるように・表示用）
     const idx=myHand.indexOf(tossCard); if(idx>=0) myHand=[...myHand.slice(0,idx),...myHand.slice(idx+1)];
-    field=[...field, tossCard];
+    const myP=tablePlayers.find(p=>p.seat===yourSeat);
+    field=[...field, {c:tossCard, by:(myP?myP.name:''), seat:yourSeat}];
   }
   stage="draw"; renderTable();
 }
@@ -1102,6 +1189,7 @@ async function hostFinish(){
 async function goReveal(){
   gtag('event','game_finished',{deck_key:deckKey});
   try {
+    if (net.store.tableIndex == null) { try { await net.resolveMySeat(); yourSeat = net.store.seat; } catch(_){} }
     const rows = await net.fetchReveal();
     const box=$('reveal'); box.innerHTML='';
     rows.forEach(p=>{
@@ -1119,9 +1207,9 @@ async function goReveal(){
 async function tryReconnect(saved) {
   net.store.sessionId = saved.sessionId; net.store.playerId = saved.playerId;
   net.store.hostToken = saved.hostToken; net.store.code = saved.code;
-  const { data: sess, error } = await net.supabase.from('sessions').select('status,deck_key,penalty_mode').eq('id', saved.sessionId).single();
+  const { data: sess, error } = await net.supabase.from('sessions').select('status,deck_key,penalty_mode,penalty_count').eq('id', saved.sessionId).single();
   if (error || !sess) throw new Error('session not found');
-  deckKey=sess.deck_key; deck=DECKS[deckKey]; penaltyMode=sess.penalty_mode; applyTheme(deckKey);
+  deckKey=sess.deck_key; deck=DECKS[deckKey]; penaltyMode=sess.penalty_mode; penaltyCount=sess.penalty_count||1; applyTheme(deckKey);
   if (sess.status==='lobby') {
     $('lobbyCode').textContent = saved.code||'';
     if (saved.hostToken) {
@@ -1306,17 +1394,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   try { await net.ensureAuth(); } catch(e) { alert('認証エラー: ' + e.message); return; }
 
+  const saved = net.loadLocal();
   if (joinCode) {
     joinCode = joinCode.toUpperCase();
-    $('joinCodeDisp').textContent = joinCode;
-    show('s-join');
-  } else {
-    const saved = net.loadLocal();
-    if (saved.sessionId) {
-      try { await tryReconnect(saved); } catch { localStorage.removeItem('ura:net'); show('s-deck'); }
-    } else {
-      show('s-deck');
+    // QRリンク(?code=)を開いたままリロードしても、同じ部屋なら退出せず復帰する
+    if (saved.sessionId && saved.code === joinCode) {
+      try { await tryReconnect(saved); return; } catch { localStorage.removeItem('ura:net'); }
     }
+    showJoin(joinCode);
+  } else if (saved.sessionId) {
+    try { await tryReconnect(saved); } catch { localStorage.removeItem('ura:net'); show('s-deck'); }
+  } else {
+    show('s-deck');
   }
 });
 </script>

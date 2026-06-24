@@ -58,10 +58,10 @@ export function createGameNet({ url, anonKey }) {
   }
 
   // ---- 部屋作成（主催） ----
-  async function createRoom({ deckKey, penalty = false, tableTarget = 6, name = '主催' }) {
+  async function createRoom({ deckKey, penalty = false, tableTarget = 6, name = '主催', penaltyCount = 1 }) {
     await ensureAuth();
     const { data, error } = await supabase.rpc('create_session', {
-      p_deck_key: deckKey, p_penalty: penalty, p_table_target: tableTarget, p_name: name,
+      p_deck_key: deckKey, p_penalty: penalty, p_table_target: tableTarget, p_name: name, p_penalty_count: penaltyCount,
     });
     if (error) throw error;
     store.sessionId = data.sessionId; store.playerId = data.playerId;
@@ -70,14 +70,15 @@ export function createGameNet({ url, anonKey }) {
     return data; // { sessionId, code, hostToken, playerId }
   }
 
-  // ---- 入室（参加者） ----
+  // ---- 入室／復帰（参加者） ----
+  //   既存メンバーは進行中でも戻れる（join_session が status / reconnected を返す）
   async function joinRoom({ code, name = 'ゲスト' }) {
     await ensureAuth();
     const { data, error } = await supabase.rpc('join_session', { p_code: code, p_name: name });
     if (error) throw error;
-    store.sessionId = data.sessionId; store.playerId = data.playerId; store.code = code;
+    store.sessionId = data.sessionId; store.playerId = data.playerId; store.code = (code || '').toUpperCase();
     saveLocal();
-    return data; // { sessionId, playerId }
+    return data; // { sessionId, playerId, status, reconnected }
   }
 
   // ---- ロビー購読（名簿の増減 + 開始の合図） ----
@@ -118,8 +119,8 @@ export function createGameNet({ url, anonKey }) {
   }
 
   // ---- 罰ゲーム：罠を仕込む / 主催が締める ----
-  async function setTrap({ card }) {
-    const { data, error } = await supabase.rpc('set_trap', { p_session: store.sessionId, p_card: card });
+  async function setTrap({ cards }) {
+    const { data, error } = await supabase.rpc('set_trap', { p_session: store.sessionId, p_cards: cards });
     if (error) throw error;
     return data; // { ok, allSet }
   }
@@ -255,7 +256,7 @@ export function createGameNet({ url, anonKey }) {
    await net.startRoom({ cards: DECKS[deckKey].cards, assignment }); // [[pid,...],...]
 
    // s-traps（罰ゲームON時・各自）:
-   await net.setTrap({ card: chosen });    // 全員設定で onStatus が 'playing' に
+   await net.setTrap({ cards: chosenArray }); // 1〜penalty_count 枚。全員設定で onStatus が 'playing' に
    // 主催が締めるなら: await net.beginPlay();
 
    // s-table:
